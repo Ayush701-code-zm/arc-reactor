@@ -1,0 +1,27 @@
+# Agent safety hook
+hooks/denied.log
+
+# OS
+.DS_Store
+
+# Secrets
+.env
+.env.*
+
+# Go
+control-plane/bin/
+control-plane/gen/
+control-plane/coverage.out
+
+# C++
+runtime/build/
+runtime/build-linux/
+runtime/cmake-build-*/
+runtime/gen/
+
+# Local state
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
