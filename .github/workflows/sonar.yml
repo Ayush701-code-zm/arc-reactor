@@ -8,8 +8,6 @@ on:
 jobs:
   sonar:
     runs-on: ubuntu-latest
-    # Skips until SONAR_TOKEN is set. Does not block Milestone 1 locally.
-    if: ${{ secrets.SONAR_TOKEN != '' }}
     steps:
       - uses: actions/checkout@v4
         with:
