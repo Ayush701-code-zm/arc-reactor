@@ -1,6 +1,7 @@
 #include "tiny/process/cgroup.h"
 
 #include <cerrno>
+#include <cstdlib>
 #include <cstring>
 #include <fcntl.h>
 #include <fstream>
@@ -159,14 +160,34 @@ bool EnableCpuMemory(const std::string& parent, std::string* err) {
 }
 
 std::string FindDelegationParent(std::string* err) {
-  std::string cur = JoinCgroup(SelfCgroupRel());
   std::string last_err;
-  for (int i = 0; i < 16; ++i) {
-    if (EnableCpuMemory(cur, &last_err)) {
-      return cur;
+
+  // Explicit override for CI / sudo hosts: TINY_CGROUP_PARENT=/sys/fs/cgroup
+  if (const char* forced = std::getenv("TINY_CGROUP_PARENT"); forced && *forced) {
+    const std::string parent = forced;
+    if (EnableCpuMemory(parent, &last_err)) {
+      return parent;
     }
+    if (err) {
+      *err = "TINY_CGROUP_PARENT=" + parent + " failed: " + last_err;
+    }
+    return "";
+  }
+
+  // Prefer cgroup root when writable (sudo / bare metal). Fall back to self chain.
+  std::vector<std::string> candidates;
+  candidates.push_back(kFsRoot);
+  std::string cur = JoinCgroup(SelfCgroupRel());
+  for (int i = 0; i < 16; ++i) {
+    if (cur != kFsRoot) candidates.push_back(cur);
     if (cur == kFsRoot) break;
     cur = ParentDir(cur);
+  }
+
+  for (const auto& candidate : candidates) {
+    if (EnableCpuMemory(candidate, &last_err)) {
+      return candidate;
+    }
   }
   if (err) *err = "no cgroup parent accepts +cpu +memory (last: " + last_err + ")";
   return "";

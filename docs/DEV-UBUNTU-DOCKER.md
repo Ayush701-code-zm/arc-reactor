@@ -61,7 +61,7 @@ That is **not** full M1 exit criteria. Enforce real limits with:
 TINY_REQUIRE_CGROUP=1 bash scripts/m1-smoke-linux.sh   # bare Ubuntu / CI
 ```
 
-GitHub Actions workflow: `.github/workflows/m1-linux.yml` (ubuntu-24.04 runner).
+GitHub Actions workflow: `.github/workflows/m1-linux.yml` (ubuntu-24.04 runner, runs smoke with `sudo` and `TINY_CGROUP_PARENT=/sys/fs/cgroup`).
 
 ## Related
 
