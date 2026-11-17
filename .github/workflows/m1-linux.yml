@@ -1,6 +1,5 @@
 name: m1-linux
 
-# Runs on a real Ubuntu runner (not Docker Desktop) so cgroup v2 can be required.
 on:
   push:
     branches: [main, master]
@@ -17,8 +16,13 @@ jobs:
         with:
           go-version: "1.22"
 
-      - name: Install C++ tools
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends cmake g++
+      - name: Install C++ / gRPC tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake g++ pkg-config \
+            protobuf-compiler protobuf-compiler-grpc \
+            libprotobuf-dev libgrpc++-dev
 
       - name: M1 smoke with cgroup required
         env:
@@ -26,7 +30,6 @@ jobs:
           TINY_CGROUP_PARENT: "/sys/fs/cgroup"
           TINY_DB: ${{ github.workspace }}/data/tiny-ci.db
           TINY_RUNTIME_ADDR: "127.0.0.1:50051"
-        # Root can vacate /sys/fs/cgroup and enable +cpu +memory. The runner user cannot mkdir under system.slice.
         run: |
           sudo -E env \
             "PATH=$PATH" \

@@ -34,17 +34,33 @@ This split wins over any global rule that asks for another language in chat or i
 | Direct question | Answer first. |
 | Non-trivial build | Ask design and technical questions first. Then plan. Then code. See `thinking-questions.md`. |
 | Early verification | After meaningful edits, run the cheapest relevant check. See `vortex-verification.md`. |
-| Close every reply | End with a short "What went wrong / what could go wrong" and "What we do" block. |
+| Close every reply | End with What went wrong, What we do, What could go wrong. |
+| Explain tech changes | After any code/config edit, explain the change in chat using the tech change block below. |
 
 Apply this to every response: code, explanation, and discussion.
 
-# Close every reply
+# After code or config changes
 
-Every chat reply ends with these two short parts (2 to 4 lines total):
+When you edit the repo, explain the technical change in chat. Keep it short. Use this block:
 
 | Part | Meaning |
 |---|---|
-| What went wrong / what could go wrong | If something failed, name the real cause in plain words. If nothing failed yet, name the main risk for the next step. |
-| What we do | The next action. Mark **I do** or **you do**. One clear command or decision. |
+| What I made | The concrete change (file/function/behavior). |
+| Where | Paths or packages touched. |
+| Tech removed | Named tech that left (protocol, library, API, pattern). One line each. Say "none" if nothing was removed. |
+| Tech added | Named tech that arrived (protocol, library, API, pattern). One line each. Say "none" if nothing new. |
+| What will happen | What the system does now with this change. |
+| What not without it | What fails, stays broken, or stays unclear if we skip this change. |
 
-Do not skip this block on success replies. On success, "what could go wrong" is the risk to watch, not a fake failure.
+Name the real tech terms (example: gRPC, HTTP JSON, cgroup v2, SQLite, protobuf). Do not hide them behind vague words.
+
+Then close every reply with:
+
+| Part | Meaning |
+|---|---|
+| What went wrong | Real failure cause, or "nothing" if this turn had no failure. |
+| What we do | Next action. Mark **I do** or **you do**. |
+| What could go wrong | Main risk for the next step. |
+
+Do not skip these blocks after edits. On success, "what could go wrong" is the risk to watch, not a fake failure.
+Do not dump huge diffs. Point to paths and say the behavior change.

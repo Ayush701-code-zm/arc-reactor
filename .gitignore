@@ -10,14 +10,14 @@ hooks/denied.log
 
 # Go
 control-plane/bin/
-control-plane/gen/
 control-plane/coverage.out
+# control-plane/gen/ is committed (Go gRPC stubs)
 
 # C++
 runtime/build/
 runtime/build-linux/
 runtime/cmake-build-*/
-runtime/gen/
+# C++ stubs are generated into the CMake build tree, not runtime/gen/
 
 # Local state
 *.db

@@ -35,6 +35,7 @@ Current phase: **Phase 1 — Milestone 1 Tiny EC2**. Source of truth for now vs 
 | `rules/always/simple-answers.md` | Answer first, short plans, who acts |
 | `rules/always/thinking-questions.md` | Socratic build mode before non-trivial work |
 | `rules/always/vortex-verification.md` | Early verification in the coding loop |
+| `rules/always/code-comments.md` | No AI-style narrating comments in source |
 
 # Working rules
 

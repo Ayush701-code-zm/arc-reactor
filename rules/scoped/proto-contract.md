@@ -35,7 +35,7 @@ Locked M1 decisions: [`docs/M1-CONTRACT.md`](../../docs/M1-CONTRACT.md).
 - Instance startup failures: set `status = FAILED` and `error_message`.
 - Transport / RPC failures: gRPC status codes, not `error_message` alone.
 - Control plane owns metadata. Runtime owns the process. Do not send SQL rows across this API.
-- Do not add a side channel for these calls.
-- Change this file first, then regenerate with `scripts/gen-proto.sh`, then update Go and C++. Do not hand-edit generated files.
+- Do not add a side channel for these calls. M1 transport is gRPC only (no HTTP JSON API).
+- Change the `.proto` first, run `scripts/gen-proto.sh` (commit Go stubs), rebuild C++ (CMake regenerates C++ stubs). Do not hand-edit generated files.
 - Keep field numbers. Add new fields. Do not renumber a field that a milestone already uses.
 - Generated code is not the source of truth. The `.proto` file is.

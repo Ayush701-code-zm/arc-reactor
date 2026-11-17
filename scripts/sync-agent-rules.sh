@@ -27,6 +27,7 @@ preferred=(
   simple-answers.md
   thinking-questions.md
   vortex-verification.md
+  code-comments.md
 )
 
 files=()

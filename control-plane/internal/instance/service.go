@@ -10,7 +10,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Service orchestrates DB-first create and runtime calls. Go owns desired state.
 type Service struct {
 	Store   *store.Store
 	Runtime runtimeclient.Client
@@ -30,7 +29,6 @@ func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, 
 		Status:      types.StatusPending,
 	}
 
-	// DB-first.
 	if err := s.Store.InsertPending(ctx, inst); err != nil {
 		return types.Instance{}, err
 	}
@@ -48,7 +46,6 @@ func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, 
 		status = types.StatusFailed
 	}
 	if err := s.Store.UpdateLifecycle(ctx, inst.ID, status, view.PID, view.ErrorMessage); err != nil {
-		// Best-effort compensate orphan process.
 		_ = s.Runtime.DeleteInstance(ctx, inst.ID)
 		return types.Instance{}, fmt.Errorf("persist runtime result: %w", err)
 	}
@@ -73,7 +70,7 @@ func (s *Service) Inspect(ctx context.Context, name string) (types.Instance, err
 	}
 	view, err := s.Runtime.InspectInstance(ctx, inst.ID)
 	if err != nil {
-		return inst, nil // desired state still useful if runtime is down
+		return inst, nil
 	}
 	_ = s.Store.UpdateLifecycle(ctx, inst.ID, view.Status, view.PID, view.ErrorMessage)
 	inst.Status = view.Status

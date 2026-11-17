@@ -7,7 +7,6 @@ import (
 	"unicode"
 )
 
-// ParseSize converts CLI sizes like 512MB into bytes.
 func ParseSize(s string) (uint64, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {

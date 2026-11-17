@@ -12,7 +12,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Store is the SQLite desired-state store. Go owns identity and desired state.
 type Store struct {
 	db *sql.DB
 }

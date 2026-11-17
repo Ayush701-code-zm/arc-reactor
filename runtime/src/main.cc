@@ -1,7 +1,6 @@
+#include "tiny/grpc_server.h"
 #include "tiny/process/supervisor.h"
-#include "tiny/runtime_service.h"
 
-#include <cstdlib>
 #include <iostream>
 #include <string>
 
@@ -15,9 +14,8 @@ int main(int argc, char** argv) {
   }
 
   tiny::process::Supervisor supervisor;
-  tiny::RuntimeService service(&supervisor);
-  if (!tiny::ServeHttp(addr, &service)) {
-    std::cerr << "failed to bind " << addr << "\n";
+  if (!tiny::ServeGrpc(addr, &supervisor)) {
+    std::cerr << "failed to bind gRPC " << addr << "\n";
     return 1;
   }
   return 0;

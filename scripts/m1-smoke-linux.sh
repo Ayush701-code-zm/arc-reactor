@@ -1,5 +1,4 @@
 #!/bin/bash
-# Build and smoke-test M1 instance lifecycle. Run inside the Ubuntu dev container (or bare Ubuntu).
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -10,7 +9,6 @@ if [[ "$(uname -s)" != "Linux" ]]; then
   exit 1
 fi
 
-# Separate from macOS runtime/build so CMakeCache paths do not collide.
 BUILD_DIR="${TINY_RUNTIME_BUILD_DIR:-$ROOT/runtime/build-linux}"
 
 mkdir -p data control-plane/bin "$BUILD_DIR"
@@ -30,8 +28,6 @@ ctest --test-dir "$BUILD_DIR" --output-on-failure
 
 export TINY_DB="${TINY_DB:-$ROOT/data/tiny-docker.db}"
 export TINY_RUNTIME_ADDR="${TINY_RUNTIME_ADDR:-127.0.0.1:50051}"
-# Docker Desktop often cannot delegate cgroup v2. Default: allow skip.
-# On real Ubuntu / CI set TINY_REQUIRE_CGROUP=1 to enforce limits.
 export TINY_REQUIRE_CGROUP="${TINY_REQUIRE_CGROUP:-0}"
 
 printf '== start tinyruntimed (TINY_REQUIRE_CGROUP=%s) ==\n' "$TINY_REQUIRE_CGROUP"

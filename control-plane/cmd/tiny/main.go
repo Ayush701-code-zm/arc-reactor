@@ -44,7 +44,6 @@ func main() {
 		}
 		inst, err := svc.Create(ctx, spec)
 		if err != nil {
-			// Still print instance if partially persisted.
 			_ = printJSON(inst)
 			fail(err)
 		}

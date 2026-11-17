@@ -24,3 +24,4 @@ The user reads fast and does not want to decode. Write so the answer is clear on
 | What went wrong | If there is an error, say the cause in one line before the fix. |
 | What could go wrong | If there is no error yet, say the main risk for the next step in one line. |
 | What we do | End with the next action: who acts, and the exact command or decision. |
+| Tech change block | After edits: What I made, Where, Tech removed, Tech added, What will happen, What not without it. Then the close block. See `response-style.md`. |

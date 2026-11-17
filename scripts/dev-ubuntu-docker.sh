@@ -1,6 +1,4 @@
 #!/bin/bash
-# Opens an Ubuntu 24.04 container as the Linux *host* for Tiny AWS.
-# Docker is NOT the instance runtime. Instances still use pid ns + cgroup v2.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -26,12 +24,8 @@ docker build \
   -t "$IMAGE" \
   "$ROOT"
 
-# Private cgroup namespace (default) + privileged lets the container treat
-# /sys/fs/cgroup as its own root and enable +cpu +memory for tinyaws/.
-# Host cgroupns made Docker Desktop leave cpu/memory undelegated under /docker/<id>.
 printf 'Starting privileged Ubuntu host container (private cgroupns).\n'
 printf 'Inside: bash scripts/m1-smoke-linux.sh\n'
-printf 'If a container named %s is already running, exit it first.\n' "$NAME"
 
 exec docker run --rm -it \
   --name "$NAME" \

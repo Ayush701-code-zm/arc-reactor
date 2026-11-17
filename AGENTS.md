@@ -37,6 +37,7 @@ Current phase: **Phase 1 — Milestone 1 Tiny EC2**. Source of truth for now vs 
 | `rules/always/simple-answers.md` | Answer first, short plans, who acts |
 | `rules/always/thinking-questions.md` | Socratic build mode before non-trivial work |
 | `rules/always/vortex-verification.md` | Early verification in the coding loop |
+| `rules/always/code-comments.md` | No AI-style narrating comments in source |
 
 # Working rules
 
@@ -153,20 +154,36 @@ This split wins over any global rule that asks for another language in chat or i
 | Direct question | Answer first. |
 | Non-trivial build | Ask design and technical questions first. Then plan. Then code. See `thinking-questions.md`. |
 | Early verification | After meaningful edits, run the cheapest relevant check. See `vortex-verification.md`. |
-| Close every reply | End with a short "What went wrong / what could go wrong" and "What we do" block. |
+| Close every reply | End with What went wrong, What we do, What could go wrong. |
+| Explain tech changes | After any code/config edit, explain the change in chat using the tech change block below. |
 
 Apply this to every response: code, explanation, and discussion.
 
-# Close every reply
+# After code or config changes
 
-Every chat reply ends with these two short parts (2 to 4 lines total):
+When you edit the repo, explain the technical change in chat. Keep it short. Use this block:
 
 | Part | Meaning |
 |---|---|
-| What went wrong / what could go wrong | If something failed, name the real cause in plain words. If nothing failed yet, name the main risk for the next step. |
-| What we do | The next action. Mark **I do** or **you do**. One clear command or decision. |
+| What I made | The concrete change (file/function/behavior). |
+| Where | Paths or packages touched. |
+| Tech removed | Named tech that left (protocol, library, API, pattern). One line each. Say "none" if nothing was removed. |
+| Tech added | Named tech that arrived (protocol, library, API, pattern). One line each. Say "none" if nothing new. |
+| What will happen | What the system does now with this change. |
+| What not without it | What fails, stays broken, or stays unclear if we skip this change. |
 
-Do not skip this block on success replies. On success, "what could go wrong" is the risk to watch, not a fake failure.
+Name the real tech terms (example: gRPC, HTTP JSON, cgroup v2, SQLite, protobuf). Do not hide them behind vague words.
+
+Then close every reply with:
+
+| Part | Meaning |
+|---|---|
+| What went wrong | Real failure cause, or "nothing" if this turn had no failure. |
+| What we do | Next action. Mark **I do** or **you do**. |
+| What could go wrong | Main risk for the next step. |
+
+Do not skip these blocks after edits. On success, "what could go wrong" is the risk to watch, not a fake failure.
+Do not dump huge diffs. Point to paths and say the behavior change.
 
 
 # Dev state
@@ -212,6 +229,7 @@ The user reads fast and does not want to decode. Write so the answer is clear on
 | What went wrong | If there is an error, say the cause in one line before the fix. |
 | What could go wrong | If there is no error yet, say the main risk for the next step in one line. |
 | What we do | End with the next action: who acts, and the exact command or decision. |
+| Tech change block | After edits: What I made, Where, Tech removed, Tech added, What will happen, What not without it. Then the close block. See `response-style.md`. |
 
 
 # Socratic build mode
@@ -328,4 +346,21 @@ Do not dump raw scanner noise. Convert each finding into:
 
 If cloud Sonar or Vortex is not connected, say what is missing in one line, then use the compiler and tests as early feedback.
 Do not block Milestone 1 coding on a live Sonar dashboard unless the user asks to finish cloud setup.
+
+
+# Code comments
+
+Do not add comments that explain what the next line does in plain English.
+Do not add ownership lectures, milestone essays, or "why this exists" paragraphs in source.
+
+| Allowed | Not allowed |
+|---|---|
+| A short comment for a non-obvious invariant, workaround, or hazard | Narrating the code |
+| `// TODO(owner):` with a concrete next action | Restating types, names, or package purpose |
+| Generated file headers from protoc | Hand-written comments that sound like a tutor |
+
+Default: no comment. Prefer clear names over comments.
+If a comment is needed, one short line.
+Never add comments "for the reader" or "for future AI".
+Docs and rules live in `docs/` and `rules/`, not inline in every file.
 

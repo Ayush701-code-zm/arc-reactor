@@ -4,26 +4,12 @@ package tiny.v1;
 
 option go_package = "github.com/ayushanand/tiny-aws/control-plane/gen/tiny/v1;tinyv1";
 
-// RuntimeService is the only wire contract between the Go control plane and the C++ runtime.
-// Go owns identity and desired state. C++ owns live process state. Go reconciles the two.
 service RuntimeService {
-  // CreateInstance starts supervision for one spec. The control plane supplies id and name.
-  // Image runs a fixed stub command in Milestone 1. command/args are a later phase.
   rpc CreateInstance(CreateInstanceRequest) returns (CreateInstanceResponse);
-
-  // ListInstances returns instances this runtime currently knows (live view).
   rpc ListInstances(ListInstancesRequest) returns (ListInstancesResponse);
-
-  // InspectInstance returns one instance by id (Go resolves --name to id first).
   rpc InspectInstance(InspectInstanceRequest) returns (InspectInstanceResponse);
-
-  // StartInstance starts a stopped instance by id.
   rpc StartInstance(StartInstanceRequest) returns (StartInstanceResponse);
-
-  // StopInstance stops a running instance: SIGTERM, wait 5000ms, then SIGKILL.
   rpc StopInstance(StopInstanceRequest) returns (StopInstanceResponse);
-
-  // DeleteInstance stops if needed, then removes runtime state for the instance.
   rpc DeleteInstance(DeleteInstanceRequest) returns (DeleteInstanceResponse);
 }
 
@@ -37,30 +23,29 @@ enum InstanceStatus {
 }
 
 message Instance {
-  string id = 1;                 // UUID primary identity (assigned by Go)
-  string name = 2;               // unique human alias
+  string id = 1;
+  string name = 2;
   string image = 3;
-  uint32 cpu = 4;                // whole CPU count
-  uint64 memory_bytes = 5;       // memory limit in bytes
+  uint32 cpu = 4;
+  uint64 memory_bytes = 5;
   InstanceStatus status = 6;
-  int32 pid = 7;                 // 0 if not running
-  string error_message = 8;      // instance startup / lifecycle failure detail
+  int32 pid = 7;
+  string error_message = 8;
 }
 
 message CreateInstanceRequest {
-  string id = 1;                 // required; UUID from control plane
-  string name = 2;               // required; unique alias
-  string image = 3;              // required; runs fixed stub command in M1
-  uint32 cpu = 4;                // required; >= 1
-  uint64 memory_bytes = 5;       // required; > 0
+  string id = 1;
+  string name = 2;
+  string image = 3;
+  uint32 cpu = 4;
+  uint64 memory_bytes = 5;
 }
 
 message CreateInstanceResponse {
   string id = 1;
   InstanceStatus status = 2;
-  int32 pid = 3;                 // 0 if not running
-  string error_message = 4;      // set on instance startup failure; empty on success
-  // Transport / RPC-level failures use gRPC status codes, not this field.
+  int32 pid = 3;
+  string error_message = 4;
 }
 
 message ListInstancesRequest {}
@@ -70,7 +55,7 @@ message ListInstancesResponse {
 }
 
 message InspectInstanceRequest {
-  string id = 1;                 // required; Go resolves name -> id
+  string id = 1;
 }
 
 message InspectInstanceResponse {
@@ -94,7 +79,7 @@ message StopInstanceRequest {
 
 message StopInstanceResponse {
   string id = 1;
-  InstanceStatus status = 2;     // STOPPING while waiting; STOPPED when done
+  InstanceStatus status = 2;
   string error_message = 3;
 }
 

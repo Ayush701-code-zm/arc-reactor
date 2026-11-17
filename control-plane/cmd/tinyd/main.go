@@ -13,8 +13,6 @@ import (
 	"github.com/ayushanand/tiny-aws/control-plane/internal/types"
 )
 
-// tinyd is the control-plane daemon skeleton.
-// Milestone 1 CLI still uses in-process service; HTTP is the target hop.
 func main() {
 	addr := env("TINY_API_ADDR", "127.0.0.1:8080")
 	dbPath := os.Getenv("TINY_DB")

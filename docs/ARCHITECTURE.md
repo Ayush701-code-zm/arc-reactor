@@ -40,7 +40,7 @@ tiny (Go CLI)
 
 - Control plane owns identity, desired state, and orchestration (SQLite).
 - Runtime owns the live process and Linux primitives (pid namespace + cgroup v2 in M1).
-- They talk only through `proto/tiny/v1/runtime.proto`.
+- They talk only through gRPC using `proto/tiny/v1/runtime.proto` (no HTTP side channel in M1).
 - Locked M1 contract: [`docs/M1-CONTRACT.md`](M1-CONTRACT.md).
 
 ## Dev environment

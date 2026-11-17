@@ -135,8 +135,6 @@ Instance Supervisor::StartLocked(Instance& inst) {
   std::string err;
   bool cgroup_ok = ApplyLimits(inst.spec.id, inst.spec.cpu, inst.spec.memory_bytes, &err);
   if (!cgroup_ok) {
-    // Docker Desktop often cannot delegate cgroup v2 controllers.
-    // Allow process+pid-ns lifecycle unless TINY_REQUIRE_CGROUP=1.
     if (RequireCgroup() || !CanSkipCgroup(err)) {
       inst.status = Status::kFailed;
       inst.error_message = err;
@@ -152,16 +150,13 @@ Instance Supervisor::StartLocked(Instance& inst) {
   }
 
   if (pid == 0) {
-    // Own process group so stop can signal the whole tree.
     setpgid(0, 0);
-    // Join cgroup before creating the namespaced child so limits inherit.
     if (cgroup_ok) {
       std::string local;
       if (!AddPid(inst.spec.id, getpid(), &local)) {
         _exit(110);
       }
     }
-    // Child: new pid namespace, then re-fork so the grandchild is pid 1 in the ns.
     std::string local;
     if (!EnterPidNamespace(&local)) {
       _exit(111);
@@ -173,7 +168,6 @@ Instance Supervisor::StartLocked(Instance& inst) {
       waitpid(inner, &status, 0);
       _exit(WIFEXITED(status) ? WEXITSTATUS(status) : 113);
     }
-    // Grandchild: fixed stub command for M1 (image implies stub; no command overrides).
     (void)inst.spec.image;
     prctl(PR_SET_PDEATHSIG, SIGKILL);
     execl("/bin/sleep", "sleep", "infinity", static_cast<char*>(nullptr));
@@ -202,7 +196,6 @@ Instance Supervisor::StopLocked(Instance& inst) {
     return inst;
   }
   inst.status = Status::kStopping;
-  // Signal the process group (negative pgid).
   kill(-inst.pid, SIGTERM);
 
   const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(kStopTimeoutMs);

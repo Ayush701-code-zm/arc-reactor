@@ -1,6 +1,5 @@
 package types
 
-// Status mirrors tiny.v1.InstanceStatus for the control plane.
 type Status string
 
 const (
@@ -11,7 +10,6 @@ const (
 	StatusFailed   Status = "FAILED"
 )
 
-// Spec is the create input after CLI parsing.
 type Spec struct {
 	Name        string
 	Image       string
@@ -19,7 +17,6 @@ type Spec struct {
 	MemoryBytes uint64
 }
 
-// Instance is desired + last-known state stored in SQLite.
 type Instance struct {
 	ID           string
 	Name         string
@@ -31,7 +28,6 @@ type Instance struct {
 	ErrorMessage string
 }
 
-// RuntimeView is live state from the C++ runtime.
 type RuntimeView struct {
 	ID           string
 	Name         string

@@ -27,7 +27,7 @@ That builds Go + C++, starts `tinyruntimed`, and runs create → list → inspec
 cmake -S runtime -B runtime/build-linux && cmake --build runtime/build-linux
 (cd control-plane && go build -o bin/tiny ./cmd/tiny)
 
-runtime/build-linux/tinyruntimed --addr 127.0.0.1:50051 &
+runtime/build-linux/tinyruntimed --addr 127.0.0.1:50051 &   # gRPC
 export TINY_DB=/src/data/tiny-docker.db
 export TINY_RUNTIME_ADDR=127.0.0.1:50051
 

@@ -4,11 +4,11 @@ Decisions locked with the user. Do not change without an explicit new decision.
 
 Source proto: [`proto/tiny/v1/runtime.proto`](../proto/tiny/v1/runtime.proto)
 
-## Transport note (interim)
+## Transport
 
-Field names and RPCs are defined by the `.proto` file.
-Until `scripts/gen-proto.sh` produces gRPC stubs, `tinyruntimed` speaks an HTTP/JSON mirror of those fields on `127.0.0.1:50051`.
-Replace with gRPC without changing the field contract.
+Field names and RPCs are defined by `proto/tiny/v1/runtime.proto`.
+M1 wire protocol is **gRPC only** on `127.0.0.1:50051` (override with `TINY_RUNTIME_ADDR`).
+Go stubs live in `control-plane/gen/` (committed). C++ stubs are generated at CMake build time.
 
 ## Identity
 

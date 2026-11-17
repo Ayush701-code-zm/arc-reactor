@@ -22,7 +22,7 @@ Full phases and exit criteria: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 
 Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)  
 Current milestone: [`docs/MILESTONE-1.md`](docs/MILESTONE-1.md)  
-M1 contract: [`docs/M1-CONTRACT.md`](docs/M1-CONTRACT.md) · [`proto/tiny/v1/runtime.proto`](proto/tiny/v1/runtime.proto)
+M1 contract: [`docs/M1-CONTRACT.md`](docs/M1-CONTRACT.md) · [`proto/tiny/v1/runtime.proto`](proto/tiny/v1/runtime.proto) (gRPC only)
 
 ## Layout
 

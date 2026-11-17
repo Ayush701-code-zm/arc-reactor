@@ -1,4 +1,3 @@
-# Dev host only. Not used to create Tiny instances.
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -12,9 +11,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     pkg-config \
     python3 \
+    protobuf-compiler \
+    protobuf-compiler-grpc \
+    libprotobuf-dev \
+    libgrpc++-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Go 1.22+ for control-plane module (arch selected at build time)
 ARG GO_VERSION=1.22.12
 ARG GO_ARCH=amd64
 RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz" -o /tmp/go.tgz \

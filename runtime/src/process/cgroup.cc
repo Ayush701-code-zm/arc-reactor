@@ -105,14 +105,11 @@ std::vector<int> ReadPids(const std::string& procs_path) {
   return pids;
 }
 
-// cgroup v2: cannot enable domain controllers on a cgroup that still has
-// member processes. Move them into a leaf child first (Docker/private ns case).
 bool VacateForDelegation(const std::string& parent, std::string* err) {
   if (ControllersEnabled(parent)) return true;
   const auto leaf = parent + "/tiny.init";
   if (!MkdirIfMissing(leaf, err)) return false;
 
-  // Move every process out of parent into tiny.init (best effort, retry).
   for (int round = 0; round < 8; ++round) {
     const auto pids = ReadPids(parent + "/cgroup.procs");
     if (pids.empty()) break;
@@ -122,7 +119,6 @@ bool VacateForDelegation(const std::string& parent, std::string* err) {
     }
   }
   if (!ReadPids(parent + "/cgroup.procs").empty()) {
-    // Our own thread may still briefly appear; try moving self last.
     std::string local;
     (void)WriteFile(leaf + "/cgroup.procs", std::to_string(::getpid()), &local);
   }
@@ -162,7 +158,6 @@ bool EnableCpuMemory(const std::string& parent, std::string* err) {
 std::string FindDelegationParent(std::string* err) {
   std::string last_err;
 
-  // Explicit override for CI / sudo hosts: TINY_CGROUP_PARENT=/sys/fs/cgroup
   if (const char* forced = std::getenv("TINY_CGROUP_PARENT"); forced && *forced) {
     const std::string parent = forced;
     if (EnableCpuMemory(parent, &last_err)) {
@@ -174,7 +169,6 @@ std::string FindDelegationParent(std::string* err) {
     return "";
   }
 
-  // Prefer cgroup root when writable (sudo / bare metal). Fall back to self chain.
   std::vector<std::string> candidates;
   candidates.push_back(kFsRoot);
   std::string cur = JoinCgroup(SelfCgroupRel());

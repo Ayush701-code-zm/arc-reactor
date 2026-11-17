@@ -15,7 +15,6 @@ int main() {
   auto created = sup.Create(spec);
 #if defined(__linux__)
   if (created.status == tiny::process::Status::kFailed) {
-    // Permissions / cgroup may be missing in CI sandboxes; still exercise API.
     std::cout << "linux create failed (ok in restricted env): " << created.error_message << "\n";
     return 0;
   }

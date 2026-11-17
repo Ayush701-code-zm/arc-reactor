@@ -12,14 +12,54 @@ add_library(tiny_process
 )
 target_include_directories(tiny_process PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
-add_executable(tinyruntimed
-  src/main.cc
-  src/http_server.cc
-  src/runtime_service.cc
-)
-target_link_libraries(tinyruntimed PRIVATE tiny_process)
-
 enable_testing()
 add_executable(tiny_process_test tests/supervisor_test.cc)
 target_link_libraries(tiny_process_test PRIVATE tiny_process)
 add_test(NAME tiny_process_test COMMAND tiny_process_test)
+
+find_package(Protobuf REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GRPCPP REQUIRED IMPORTED_TARGET grpc++)
+
+find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin REQUIRED)
+
+set(PROTO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../proto")
+set(PROTO_FILE "${PROTO_ROOT}/tiny/v1/runtime.proto")
+set(GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/gen")
+file(MAKE_DIRECTORY "${GEN_DIR}")
+
+set(PB_CC "${GEN_DIR}/tiny/v1/runtime.pb.cc")
+set(PB_H "${GEN_DIR}/tiny/v1/runtime.pb.h")
+set(GRPC_CC "${GEN_DIR}/tiny/v1/runtime.grpc.pb.cc")
+set(GRPC_H "${GEN_DIR}/tiny/v1/runtime.grpc.pb.h")
+
+add_custom_command(
+  OUTPUT "${PB_CC}" "${PB_H}" "${GRPC_CC}" "${GRPC_H}"
+  COMMAND ${CMAKE_COMMAND} -E make_directory "${GEN_DIR}/tiny/v1"
+  COMMAND ${Protobuf_PROTOC_EXECUTABLE}
+    --proto_path=${PROTO_ROOT}
+    --cpp_out=${GEN_DIR}
+    --grpc_out=${GEN_DIR}
+    --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN}
+    ${PROTO_FILE}
+  DEPENDS "${PROTO_FILE}"
+  COMMENT "Generating C++ gRPC stubs from runtime.proto"
+  VERBATIM
+)
+
+add_executable(tinyruntimed
+  src/main.cc
+  src/grpc_server.cc
+  "${PB_CC}"
+  "${GRPC_CC}"
+)
+target_include_directories(tinyruntimed PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/include
+  ${GEN_DIR}
+  ${Protobuf_INCLUDE_DIRS}
+)
+target_link_libraries(tinyruntimed PRIVATE
+  tiny_process
+  protobuf::libprotobuf
+  PkgConfig::GRPCPP
+)

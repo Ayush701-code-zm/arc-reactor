@@ -33,10 +33,8 @@ struct Instance {
 
 std::string ToString(Status s);
 
-// Supervisor owns live process state (C++ side of the M1 contract).
 class Supervisor {
  public:
-  // Fixed M1 stop timeout.
   static constexpr int kStopTimeoutMs = 5000;
 
   Instance Create(const Spec& spec);
