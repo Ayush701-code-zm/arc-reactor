@@ -12,6 +12,8 @@ import (
 
 type fakeRuntime struct {
 	createFn func(types.Instance) (types.RuntimeView, error)
+	stopFn   func(string) (types.RuntimeView, error)
+	deleteFn func(string) error
 	deleted  []string
 }
 
@@ -34,9 +36,15 @@ func (f *fakeRuntime) StartInstance(_ context.Context, id string) (types.Runtime
 	return types.RuntimeView{ID: id, Status: types.StatusRunning, PID: 100}, nil
 }
 func (f *fakeRuntime) StopInstance(_ context.Context, id string) (types.RuntimeView, error) {
+	if f.stopFn != nil {
+		return f.stopFn(id)
+	}
 	return types.RuntimeView{ID: id, Status: types.StatusStopped, PID: 0}, nil
 }
 func (f *fakeRuntime) DeleteInstance(_ context.Context, id string) error {
+	if f.deleteFn != nil {
+		return f.deleteFn(id)
+	}
 	f.deleted = append(f.deleted, id)
 	return nil
 }
@@ -101,6 +109,47 @@ func TestCreateRuntimeFailureMarksFailed(t *testing.T) {
 		t.Fatalf("status=%s", inst.Status)
 	}
 	got, err := svc.Store.GetByName(context.Background(), "bad")
+	if err != nil || got.Status != types.StatusFailed {
+		t.Fatalf("db=%+v err=%v", got, err)
+	}
+}
+
+func TestDeleteKeepsRowWhenRuntimeFails(t *testing.T) {
+	rt := &fakeRuntime{
+		deleteFn: func(string) error { return errors.New("still running") },
+	}
+	svc := newService(t, rt)
+	ctx := context.Background()
+	if _, err := svc.Create(ctx, types.Spec{Name: "keep", Image: "alpine", CPU: 1, MemoryBytes: 1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Delete(ctx, "keep"); err == nil {
+		t.Fatal("expected delete error")
+	}
+	if _, err := svc.Store.GetByName(ctx, "keep"); err != nil {
+		t.Fatalf("row should remain: %v", err)
+	}
+}
+
+func TestStopRequiresStoppedConfirmation(t *testing.T) {
+	rt := &fakeRuntime{
+		stopFn: func(id string) (types.RuntimeView, error) {
+			return types.RuntimeView{ID: id, Status: types.StatusRunning, PID: 7}, nil
+		},
+	}
+	svc := newService(t, rt)
+	ctx := context.Background()
+	if _, err := svc.Create(ctx, types.Spec{Name: "sticky", Image: "alpine", CPU: 1, MemoryBytes: 1}); err != nil {
+		t.Fatal(err)
+	}
+	inst, err := svc.Stop(ctx, "sticky")
+	if err == nil {
+		t.Fatal("expected stop error")
+	}
+	if inst.Status == types.StatusStopped {
+		t.Fatal("must not persist STOPPED without confirmation")
+	}
+	got, err := svc.Store.GetByName(ctx, "sticky")
 	if err != nil || got.Status != types.StatusFailed {
 		t.Fatalf("db=%+v err=%v", got, err)
 	}

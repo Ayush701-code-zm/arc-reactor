@@ -41,18 +41,26 @@ Apply this to every response: code, explanation, and discussion.
 
 # After code or config changes
 
-When you edit the repo, explain the technical change in chat. Keep it short. Use this block:
+When you edit the repo, explain the technical change in chat. Start with the tech explanation (not a status dump). Use this order:
+
+1. **Flowchart first** (Mermaid). Prefer one big detailed chart when the change touches several paths.
+   - Label nodes/subgraphs as **UNCHANGED** vs **UPDATED** (or show before → after on the updated edges).
+   - Do not draw only the full system with no change markers.
+   - Do not draw only a tiny “what changed” list with no path detail.
+2. **Detailed tech table** (not one vague line per cell).
 
 | Part | Meaning |
 |---|---|
-| What I made | The concrete change (file/function/behavior). |
-| Where | Paths or packages touched. |
-| Tech removed | Named tech that left (protocol, library, API, pattern). One line each. Say "none" if nothing was removed. |
-| Tech added | Named tech that arrived (protocol, library, API, pattern). One line each. Say "none" if nothing new. |
-| What will happen | What the system does now with this change. |
+| What I made | Concrete change: functions, RPCs, files, status transitions. Several bullets if needed. |
+| Where | Exact paths and symbols (package, file, function). |
+| Tech removed | Named tech that left (protocol, library, API, pattern, old behavior). One line each. Say "none" if nothing was removed. |
+| Tech added | Named tech that arrived. One line each with what it does. Say "none" if nothing new. |
+| How they connect | Short prose or bullets tying the flowchart nodes: Go → gRPC → C++ → Linux (or similar). |
+| What will happen | Runtime behavior now, including happy path and the main failure path. |
 | What not without it | What fails, stays broken, or stays unclear if we skip this change. |
 
-Name the real tech terms (example: gRPC, HTTP JSON, cgroup v2, SQLite, protobuf). Do not hide them behind vague words.
+Name the real tech terms (example: gRPC, HTTP JSON, cgroup v2, SQLite, protobuf, SIGTERM, SIGKILL). Do not hide them behind vague words.
+Do not compress the whole change into a single short sentence. Prefer tables + flowchart.
 
 Then close every reply with:
 

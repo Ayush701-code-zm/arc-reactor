@@ -48,11 +48,11 @@ Go stubs live in `control-plane/gen/` (committed). C++ stubs are generated at CM
 
 ## Stop semantics
 
-1. Send `SIGTERM`
+1. C++ sends `SIGTERM`
 2. Wait **5000 ms**
-3. If still alive, send `SIGKILL`
+3. If still alive, C++ sends `SIGKILL` and waits for exit
 
-While waiting, status is `STOPPING`. When done, status is `STOPPED`. Timeout is fixed for M1; configurable later.
+While waiting, status is `STOPPING`. Go persists `STOPPED` **only after** C++ confirms the process exited (`status = STOPPED` in the Stop response). Timeout is fixed for M1; configurable later.
 
 ## Create order and compensation
 
@@ -61,10 +61,21 @@ Order: **DB-first**, then gRPC `CreateInstance`.
 | Failure | Compensate |
 |---|---|
 | SQLite insert fails before gRPC | No runtime call. Return error. No orphan. |
-| SQLite ok, gRPC / startup fails | Mark row `FAILED` (or delete per reconcile policy) using `error_message`. No pretend-running row. |
-| gRPC reports running, later DB update fails | Best-effort runtime `DeleteInstance`, then reconcile so no orphan process and no ghost row. |
+| SQLite ok, gRPC / startup fails | Mark row `FAILED` using `error_message`. No pretend-running row. |
+| gRPC reports running, later DB update fails | Go owns cleanup: call runtime `DeleteInstance` (C++ terminates the process), then remove the SQLite row. If runtime cleanup fails, keep the row as `FAILED` with both errors. |
 
-Go periodically reconciles desired SQLite state with the runtime live view.
+## Delete semantics
+
+1. Go calls runtime `DeleteInstance` (C++ stops if needed, then removes runtime state / cgroup).
+2. If the runtime cannot confirm termination, **fail delete** and **keep the SQLite row**.
+3. Only after runtime confirm, Go deletes the SQLite row.
+
+## Cgroup smoke assert (when `TINY_REQUIRE_CGROUP=1`)
+
+After create, both files must exist under the instance cgroup directory:
+
+- `cpu.max`
+- `memory.max`
 
 ## Status values
 

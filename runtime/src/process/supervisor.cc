@@ -114,15 +114,23 @@ Instance Supervisor::Stop(const std::string& id) {
   return it->second;
 }
 
-void Supervisor::Delete(const std::string& id) {
+bool Supervisor::Delete(const std::string& id, std::string* err) {
   std::lock_guard lock(mu_);
   auto it = instances_.find(id);
-  if (it == instances_.end()) return;
+  if (it == instances_.end()) {
+    return true;
+  }
   if (it->second.status == Status::kRunning || it->second.status == Status::kStopping) {
     it->second = StopLocked(it->second);
   }
+  if (it->second.status != Status::kStopped && it->second.status != Status::kFailed &&
+      it->second.status != Status::kPending) {
+    if (err) *err = "instance not confirmed stopped before delete";
+    return false;
+  }
   CleanupCgroup(id);
   instances_.erase(it);
+  return true;
 }
 
 Instance Supervisor::StartLocked(Instance& inst) {

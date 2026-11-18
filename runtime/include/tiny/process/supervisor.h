@@ -42,7 +42,7 @@ class Supervisor {
   Instance Inspect(const std::string& id) const;
   Instance Start(const std::string& id);
   Instance Stop(const std::string& id);
-  void Delete(const std::string& id);
+  bool Delete(const std::string& id, std::string* err);
 
  private:
   Instance StartLocked(Instance& inst);

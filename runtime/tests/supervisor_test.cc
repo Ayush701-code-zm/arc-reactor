@@ -27,7 +27,11 @@ int main() {
     std::cerr << "expected stopped\n";
     return 1;
   }
-  sup.Delete(spec.id);
+  std::string del_err;
+  if (!sup.Delete(spec.id, &del_err)) {
+    std::cerr << "delete failed: " << del_err << "\n";
+    return 1;
+  }
 #else
   if (created.status != tiny::process::Status::kFailed) {
     std::cerr << "non-linux should fail create\n";

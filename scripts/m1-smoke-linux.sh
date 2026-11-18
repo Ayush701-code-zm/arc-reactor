@@ -46,7 +46,20 @@ TINY=control-plane/bin/tiny
 NAME="smoke-$(date +%s)"
 
 printf '== create ==\n'
-"$TINY" instance create --name "$NAME" --image alpine --cpu 1 --memory 64MB
+CREATE_JSON="$("$TINY" instance create --name "$NAME" --image alpine --cpu 1 --memory 64MB)"
+printf '%s\n' "$CREATE_JSON"
+ID="$(printf '%s' "$CREATE_JSON" | python3 -c 'import sys,json; print(json.load(sys.stdin)["ID"])')"
+
+if [[ "$TINY_REQUIRE_CGROUP" == "1" ]]; then
+  printf '== assert cgroup limits ==\n'
+  PARENT="${TINY_CGROUP_PARENT:-/sys/fs/cgroup}"
+  CGDIR="${PARENT}/tinyaws/${ID}"
+  if [[ ! -f "${CGDIR}/cpu.max" || ! -f "${CGDIR}/memory.max" ]]; then
+    printf 'missing cpu.max/memory.max under %s\n' "$CGDIR" >&2
+    exit 1
+  fi
+  printf 'ok %s/{cpu.max,memory.max}\n' "$CGDIR"
+fi
 
 printf '== list ==\n'
 "$TINY" instance list

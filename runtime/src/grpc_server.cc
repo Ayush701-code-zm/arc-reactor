@@ -102,8 +102,12 @@ class RuntimeServiceImpl final : public tiny::v1::RuntimeService::Service {
 
   grpc::Status DeleteInstance(grpc::ServerContext*, const tiny::v1::DeleteInstanceRequest* req,
                               tiny::v1::DeleteInstanceResponse* resp) override {
-    supervisor_->Delete(req->id());
+    std::string err;
     resp->set_id(req->id());
+    if (!supervisor_->Delete(req->id(), &err)) {
+      resp->set_error_message(err.empty() ? "delete not confirmed" : err);
+      return grpc::Status::OK;
+    }
     resp->set_error_message("");
     return grpc::Status::OK;
   }
