@@ -14,16 +14,28 @@ Until Vortex is connected in Cursor, use compiler and tests as the early loop.
 
 ## Milestone 1 quality gate (soft)
 
-Default Sonar way gate wants **≥ 80% Coverage on New Code**. That fails while M1 still grows tests.
+Default Sonar way gate wants **≥ 80% Coverage on New Code**.
 
-| Step | Who | Action |
+Two levers (use both until tests catch up):
+
+| Lever | Who | What |
 |---|---|---|
-| 1 | you | SonarCloud → Quality Gates → Create `M1 Soft` |
-| 2 | you | Keep reliability/security conditions. Remove or set **Coverage on New Code** to **0%** (or omit it) |
-| 3 | you | Project `arc-reactor` → Project Settings → Quality Gate → assign `M1 Soft` |
-| 4 | you | Re-run analysis (push or Actions → sonar) |
+| Repo | agent | `sonar.coverage.exclusions` skips C++/cmd/gRPC from coverage math (no C++ coverage report yet) |
+| Cloud | you | Assign quality gate `M1 Soft` without a hard coverage condition |
 
-Later: raise coverage conditions as Go/C++ tests grow. Do not jump straight back to 80% until store, instance, and runtime paths have real tests.
+### Soft gate in SonarCloud (you)
+
+| Step | Action |
+|---|---|
+| 1 | Open [SonarCloud](https://sonarcloud.io) → org `ayush701-code-zm` |
+| 2 | Quality Gates → Create `M1 Soft` |
+| 3 | Keep bugs/vulns conditions. **Delete** “Coverage on New Code” (or set to 0%) |
+| 4 | Project `arc-reactor` → Administration → Quality Gate → `M1 Soft` |
+| 5 | Push again so analysis re-runs |
+
+If you skip step 4, GitHub still shows **Quality Gate failed** even when `sonar` Actions is green.
+
+Later: remove coverage exclusions path-by-path as real tests land. Do not jump back to 80% until store, instance, runtime, and gRPC have tests.
 
 ## Tests we grow over time
 
