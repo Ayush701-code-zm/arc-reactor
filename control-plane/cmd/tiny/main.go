@@ -1,17 +1,18 @@
 package main
 
 import (
-	"context"
+	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
-	"github.com/ayushanand/tiny-aws/control-plane/internal/instance"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/memory"
-	"github.com/ayushanand/tiny-aws/control-plane/internal/runtimeclient"
-	"github.com/ayushanand/tiny-aws/control-plane/internal/store"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/types"
 )
 
@@ -29,12 +30,11 @@ func main() {
 		os.Exit(2)
 	}
 
-	ctx := context.Background()
-	svc, cleanup, err := newService()
-	if err != nil {
-		fail(err)
+	base := strings.TrimRight(env("TINY_API_ADDR", "127.0.0.1:8080"), "/")
+	if !strings.Contains(base, "://") {
+		base = "http://" + base
 	}
-	defer cleanup()
+	client := &http.Client{Timeout: 30 * time.Second}
 
 	switch os.Args[2] {
 	case "create":
@@ -42,92 +42,118 @@ func main() {
 		if err != nil {
 			fail(err)
 		}
-		inst, err := svc.Create(ctx, spec)
+		var inst types.Instance
+		code, err := doJSON(client, http.MethodPost, base+"/v1/instances", spec, &inst)
 		if err != nil {
-			_ = printJSON(inst)
 			fail(err)
 		}
 		_ = printJSON(inst)
+		if code >= 300 {
+			fail(fmt.Errorf("create failed: HTTP %d", code))
+		}
 	case "list":
-		list, err := svc.List(ctx)
+		var list []types.Instance
+		code, err := doJSON(client, http.MethodGet, base+"/v1/instances", nil, &list)
 		if err != nil {
 			fail(err)
 		}
 		_ = printJSON(list)
+		if code >= 300 {
+			fail(fmt.Errorf("list failed: HTTP %d", code))
+		}
 	case "inspect":
 		name, err := oneName(os.Args[3:])
 		if err != nil {
 			fail(err)
 		}
-		inst, err := svc.Inspect(ctx, name)
+		var inst types.Instance
+		code, err := doJSON(client, http.MethodGet, base+"/v1/instances/"+url.PathEscape(name), nil, &inst)
 		if err != nil {
 			fail(err)
 		}
 		_ = printJSON(inst)
+		if code >= 300 {
+			fail(fmt.Errorf("inspect failed: HTTP %d", code))
+		}
 	case "stop":
 		name, err := oneName(os.Args[3:])
 		if err != nil {
 			fail(err)
 		}
-		inst, err := svc.Stop(ctx, name)
+		var inst types.Instance
+		code, err := doJSON(client, http.MethodPost, base+"/v1/instances/"+url.PathEscape(name)+"/stop", nil, &inst)
 		if err != nil {
 			fail(err)
 		}
 		_ = printJSON(inst)
+		if code >= 300 {
+			fail(fmt.Errorf("stop failed: HTTP %d", code))
+		}
 	case "start":
 		name, err := oneName(os.Args[3:])
 		if err != nil {
 			fail(err)
 		}
-		inst, err := svc.Start(ctx, name)
+		var inst types.Instance
+		code, err := doJSON(client, http.MethodPost, base+"/v1/instances/"+url.PathEscape(name)+"/start", nil, &inst)
 		if err != nil {
 			fail(err)
 		}
 		_ = printJSON(inst)
+		if code >= 300 {
+			fail(fmt.Errorf("start failed: HTTP %d", code))
+		}
 	case "delete":
 		name, err := oneName(os.Args[3:])
 		if err != nil {
 			fail(err)
 		}
-		if err := svc.Delete(ctx, name); err != nil {
+		var out map[string]any
+		code, err := doJSON(client, http.MethodDelete, base+"/v1/instances/"+url.PathEscape(name), nil, &out)
+		if err != nil {
 			fail(err)
 		}
-		fmt.Println(`{"deleted":true}`)
+		_ = printJSON(out)
+		if code >= 300 {
+			fail(fmt.Errorf("delete failed: HTTP %d", code))
+		}
 	default:
 		usage()
 		os.Exit(2)
 	}
 }
 
-func newService() (*instance.Service, func(), error) {
-	dbPath := os.Getenv("TINY_DB")
-	if dbPath == "" {
-		home, err := os.UserHomeDir()
+func doJSON(client *http.Client, method, rawURL string, body any, out any) (int, error) {
+	var rdr io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
 		if err != nil {
-			return nil, nil, err
+			return 0, err
 		}
-		dbPath = filepath.Join(home, ".tiny-aws", "tiny.db")
+		rdr = bytes.NewReader(b)
 	}
-	st, err := store.Open(dbPath)
+	req, err := http.NewRequest(method, rawURL, rdr)
 	if err != nil {
-		return nil, nil, err
+		return 0, err
 	}
-
-	addr := os.Getenv("TINY_RUNTIME_ADDR")
-	if addr == "" {
-		addr = "127.0.0.1:50051"
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
 	}
-	rt, err := runtimeclient.Dial(addr)
+	resp, err := client.Do(req)
 	if err != nil {
-		_ = st.Close()
-		return nil, nil, err
+		return 0, err
 	}
-
-	svc := &instance.Service{Store: st, Runtime: rt}
-	return svc, func() {
-		_ = rt.Close()
-		_ = st.Close()
-	}, nil
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return resp.StatusCode, err
+	}
+	if len(data) > 0 && out != nil {
+		if err := json.Unmarshal(data, out); err != nil {
+			return resp.StatusCode, fmt.Errorf("decode response: %w (body=%s)", err, string(data))
+		}
+	}
+	return resp.StatusCode, nil
 }
 
 func parseCreate(args []string) (types.Spec, error) {
@@ -191,6 +217,13 @@ func printJSON(v any) error {
 	return enc.Encode(v)
 }
 
+func env(k, def string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return def
+}
+
 func fail(err error) {
 	fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	os.Exit(1)
@@ -203,5 +236,7 @@ tiny instance inspect NAME
 tiny instance stop NAME
 tiny instance start NAME
 tiny instance delete NAME
+
+Env: TINY_API_ADDR (default 127.0.0.1:8080). CLI talks only to tinyd over HTTP.
 `)
 }

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/ayushanand/tiny-aws/control-plane/internal/instance"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/runtimeclient"
@@ -40,38 +41,88 @@ func main() {
 	svc := &instance.Service{Store: st, Runtime: rt}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, map[string]string{"status": "ok"})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	mux.HandleFunc("GET /v1/instances", func(w http.ResponseWriter, r *http.Request) {
 		list, err := svc.List(r.Context())
 		if err != nil {
-			http.Error(w, err.Error(), 500)
+			writeErr(w, http.StatusInternalServerError, err)
 			return
 		}
-		writeJSON(w, list)
+		writeJSON(w, http.StatusOK, list)
 	})
 	mux.HandleFunc("POST /v1/instances", func(w http.ResponseWriter, r *http.Request) {
 		var spec types.Spec
 		if err := json.NewDecoder(r.Body).Decode(&spec); err != nil {
-			http.Error(w, err.Error(), 400)
+			writeErr(w, http.StatusBadRequest, err)
 			return
 		}
 		inst, err := svc.Create(r.Context(), spec)
 		if err != nil {
-			http.Error(w, err.Error(), 500)
-			_ = json.NewEncoder(w).Encode(inst)
+			writeJSON(w, http.StatusInternalServerError, inst)
 			return
 		}
-		writeJSON(w, inst)
+		writeJSON(w, http.StatusOK, inst)
+	})
+	mux.HandleFunc("GET /v1/instances/{name}", func(w http.ResponseWriter, r *http.Request) {
+		name := r.PathValue("name")
+		inst, err := svc.Inspect(r.Context(), name)
+		if err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, inst)
+	})
+	mux.HandleFunc("POST /v1/instances/{name}/stop", func(w http.ResponseWriter, r *http.Request) {
+		name := r.PathValue("name")
+		inst, err := svc.Stop(r.Context(), name)
+		if err != nil {
+			if inst.ID != "" {
+				writeJSON(w, statusFor(err), inst)
+				return
+			}
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, inst)
+	})
+	mux.HandleFunc("POST /v1/instances/{name}/start", func(w http.ResponseWriter, r *http.Request) {
+		name := r.PathValue("name")
+		inst, err := svc.Start(r.Context(), name)
+		if err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, inst)
+	})
+	mux.HandleFunc("DELETE /v1/instances/{name}", func(w http.ResponseWriter, r *http.Request) {
+		name := r.PathValue("name")
+		if err := svc.Delete(r.Context(), name); err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
 	})
 
 	fmt.Printf("tinyd listening on http://%s (db=%s runtime=%s)\n", addr, dbPath, rtAddr)
 	fatal(http.ListenAndServe(addr, mux))
 }
 
-func writeJSON(w http.ResponseWriter, v any) {
+func statusFor(err error) int {
+	if err != nil && strings.Contains(err.Error(), "not found") {
+		return http.StatusNotFound
+	}
+	return http.StatusInternalServerError
+}
+
+func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+func writeErr(w http.ResponseWriter, code int, err error) {
+	writeJSON(w, code, map[string]string{"error": err.Error()})
 }
 
 func env(k, def string) string {

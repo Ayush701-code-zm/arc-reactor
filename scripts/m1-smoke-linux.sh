@@ -28,19 +28,41 @@ ctest --test-dir "$BUILD_DIR" --output-on-failure
 
 export TINY_DB="${TINY_DB:-$ROOT/data/tiny-docker.db}"
 export TINY_RUNTIME_ADDR="${TINY_RUNTIME_ADDR:-127.0.0.1:50051}"
+export TINY_API_ADDR="${TINY_API_ADDR:-127.0.0.1:8080}"
 export TINY_REQUIRE_CGROUP="${TINY_REQUIRE_CGROUP:-0}"
 
 printf '== start tinyruntimed (TINY_REQUIRE_CGROUP=%s) ==\n' "$TINY_REQUIRE_CGROUP"
 "$BUILD_DIR/tinyruntimed" --addr 127.0.0.1:50051 >/tmp/tinyruntimed.log 2>&1 &
 RPID=$!
+
+printf '== start tinyd (http://%s) ==\n' "$TINY_API_ADDR"
+control-plane/bin/tinyd >/tmp/tinyd.log 2>&1 &
+DPID=$!
+
 cleanup() {
+  if kill -0 "$DPID" 2>/dev/null; then
+    kill "$DPID" 2>/dev/null || true
+    wait "$DPID" 2>/dev/null || true
+  fi
   if kill -0 "$RPID" 2>/dev/null; then
     kill "$RPID" 2>/dev/null || true
     wait "$RPID" 2>/dev/null || true
   fi
 }
 trap cleanup EXIT
-sleep 0.5
+
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  if curl -sf "http://${TINY_API_ADDR}/healthz" >/dev/null; then
+    break
+  fi
+  if [[ "$i" -eq 10 ]]; then
+    printf 'tinyd did not become ready\n' >&2
+    cat /tmp/tinyd.log >&2 || true
+    cat /tmp/tinyruntimed.log >&2 || true
+    exit 1
+  fi
+  sleep 0.3
+done
 
 TINY=control-plane/bin/tiny
 NAME="smoke-$(date +%s)"

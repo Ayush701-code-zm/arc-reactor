@@ -32,7 +32,7 @@ Current phase: **Phase 1 — Milestone 1 Tiny EC2**. Source of truth for now vs 
 |---|---|
 | `rules/always/repo.md` | Repo map, roadmap pointer, Milestone 1 scope |
 | `rules/always/architecture.md` | Ownership, hard bans, phase gate |
-| `rules/always/response-style.md` | Crisp English replies and repo language |
+| `rules/always/response-style.md` | Crisp English replies, repo language, hop-by-hop change flowcharts |
 | `rules/always/safety.md` | Ask before DB writes, process kill, protected files |
 | `rules/always/simple-answers.md` | Answer first, short plans, who acts |
 | `rules/always/thinking-questions.md` | Socratic build mode before non-trivial work |
@@ -163,10 +163,34 @@ Apply this to every response: code, explanation, and discussion.
 
 When you edit the repo, explain the technical change in chat. Start with the tech explanation (not a status dump). Use this order:
 
-1. **Flowchart first** (Mermaid). Prefer one big detailed chart when the change touches several paths.
-   - Label nodes/subgraphs as **UNCHANGED** vs **UPDATED** (or show before → after on the updated edges).
-   - Do not draw only the full system with no change markers.
-   - Do not draw only a tiny “what changed” list with no path detail.
+1. **Flowchart first** (Mermaid). Teach the change hop by hop. Abstract box salads are not allowed.
+
+## Flowchart style (locked)
+
+| Must | Meaning |
+|---|---|
+| One real command path | Walk one concrete user action (example: `tiny instance create ...`) step by step |
+| Hop labels | Each node says who acts and what data/protocol moves (HTTP JSON, gRPC, SQLite, signal, file path) |
+| Change markers | Mark **UPDATED**, **UNCHANGED**, and **REMOVED / BEFORE** (old path no longer used) |
+| Split charts if needed | Chart 1 = main request path. Chart 2 = other commands or smoke. Do not crush everything into one unreadable graph |
+| Plain words after | Short table: Layer / Job / Changed? plus env defaults if relevant |
+
+| Forbidden | Why |
+|---|---|
+| Only architecture overview boxes | User cannot see what this change did |
+| Only a tiny “what changed” list with no path | Missing how pieces connect |
+| Mixing overview + walkthrough with no labels | Hides UPDATED vs UNCHANGED |
+
+Good pattern (copy this shape):
+
+1. BEFORE/REMOVED subgraph (what the change took away)
+2. UPDATED caller steps (CLI or API)
+3. UPDATED/UNCHANGED middle hops (tinyd, service, store)
+4. UNCHANGED backend (gRPC, C++, Linux) unless that layer changed
+5. Arrows labeled with protocol (`HTTP JSON`, `gRPC protobuf`)
+6. Optional second chart for sibling commands or smoke startup order
+7. Plain-words table under the charts
+
 2. **Detailed tech table** (not one vague line per cell).
 
 | Part | Meaning |
@@ -175,12 +199,12 @@ When you edit the repo, explain the technical change in chat. Start with the tec
 | Where | Exact paths and symbols (package, file, function). |
 | Tech removed | Named tech that left (protocol, library, API, pattern, old behavior). One line each. Say "none" if nothing was removed. |
 | Tech added | Named tech that arrived. One line each with what it does. Say "none" if nothing new. |
-| How they connect | Short prose or bullets tying the flowchart nodes: Go → gRPC → C++ → Linux (or similar). |
+| How they connect | Match the flowchart hops: who → protocol → who. |
 | What will happen | Runtime behavior now, including happy path and the main failure path. |
 | What not without it | What fails, stays broken, or stays unclear if we skip this change. |
 
 Name the real tech terms (example: gRPC, HTTP JSON, cgroup v2, SQLite, protobuf, SIGTERM, SIGKILL). Do not hide them behind vague words.
-Do not compress the whole change into a single short sentence. Prefer tables + flowchart.
+Do not compress the whole change into a single short sentence. Prefer hop-by-hop flowchart + tables.
 
 Then close every reply with:
 
@@ -237,7 +261,7 @@ The user reads fast and does not want to decode. Write so the answer is clear on
 | What went wrong | If there is an error, say the cause in one line before the fix. |
 | What could go wrong | If there is no error yet, say the main risk for the next step in one line. |
 | What we do | End with the next action: who acts, and the exact command or decision. |
-| Tech change block | After edits: flowchart first, then detailed What I made / Where / Tech removed / Tech added / How they connect / What will happen / What not without it. Then the close block. See `response-style.md`. |
+| Tech change block | After edits: hop-by-hop Mermaid first (UPDATED / UNCHANGED / REMOVED, one real command path, protocol on arrows, plain-words table), then detailed What I made / Where / Tech removed / Tech added / How they connect / What will happen / What not without it. Then the close block. See `response-style.md`. |
 
 
 # Socratic build mode

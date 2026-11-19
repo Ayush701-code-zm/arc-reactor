@@ -30,6 +30,7 @@ jobs:
           TINY_CGROUP_PARENT: "/sys/fs/cgroup"
           TINY_DB: ${{ github.workspace }}/data/tiny-ci.db
           TINY_RUNTIME_ADDR: "127.0.0.1:50051"
+          TINY_API_ADDR: "127.0.0.1:8080"
         run: |
           sudo -E env \
             "PATH=$PATH" \
@@ -38,4 +39,5 @@ jobs:
             TINY_CGROUP_PARENT=/sys/fs/cgroup \
             TINY_DB="$TINY_DB" \
             TINY_RUNTIME_ADDR="$TINY_RUNTIME_ADDR" \
+            TINY_API_ADDR="$TINY_API_ADDR" \
             bash scripts/m1-smoke-linux.sh

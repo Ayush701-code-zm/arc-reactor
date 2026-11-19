@@ -30,7 +30,7 @@ Current phase: **Phase 1 — Milestone 1 Tiny EC2**. Source of truth for now vs 
 |---|---|
 | `rules/always/repo.md` | Repo map, roadmap pointer, Milestone 1 scope |
 | `rules/always/architecture.md` | Ownership, hard bans, phase gate |
-| `rules/always/response-style.md` | Crisp English replies and repo language |
+| `rules/always/response-style.md` | Crisp English replies, repo language, hop-by-hop change flowcharts |
 | `rules/always/safety.md` | Ask before DB writes, process kill, protected files |
 | `rules/always/simple-answers.md` | Answer first, short plans, who acts |
 | `rules/always/thinking-questions.md` | Socratic build mode before non-trivial work |

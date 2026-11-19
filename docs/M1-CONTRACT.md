@@ -6,17 +6,35 @@ Source proto: [`proto/tiny/v1/runtime.proto`](../proto/tiny/v1/runtime.proto)
 
 ## Transport
 
+| Hop | Protocol | Default |
+|---|---|---|
+| `tiny` CLI → `tinyd` | HTTP REST | `TINY_API_ADDR` = `127.0.0.1:8080` (no direct DB or gRPC from CLI) |
+| `tinyd` → `tinyruntimed` | gRPC only | `TINY_RUNTIME_ADDR` = `127.0.0.1:50051` |
+
 Field names and RPCs are defined by `proto/tiny/v1/runtime.proto`.
-M1 wire protocol is **gRPC only** on `127.0.0.1:50051` (override with `TINY_RUNTIME_ADDR`).
 Go stubs live in `control-plane/gen/` (committed). C++ stubs are generated at CMake build time.
+
+### HTTP routes (`tinyd`)
+
+| Method | Path | Meaning |
+|---|---|---|
+| `GET` | `/healthz` | Liveness |
+| `GET` | `/v1/instances` | List |
+| `POST` | `/v1/instances` | Create (JSON `Spec`) |
+| `GET` | `/v1/instances/{name}` | Inspect |
+| `POST` | `/v1/instances/{name}/stop` | Stop |
+| `POST` | `/v1/instances/{name}/start` | Start |
+| `DELETE` | `/v1/instances/{name}` | Delete |
+
+No `?name=` query. No `PUT` status. No CLI `--direct` escape.
 
 ## Identity
 
 | Piece | Rule |
 |---|---|
-| Primary id | UUID assigned by the Go control plane |
+| Primary id | UUID assigned by the Go control plane (`tinyd`) |
 | Human handle | `--name`, unique alias |
-| CLI | Users pass name; Go resolves name → id before runtime RPCs |
+| CLI | Users pass name; `tinyd` resolves name → id before runtime RPCs |
 
 ## Ownership
 
