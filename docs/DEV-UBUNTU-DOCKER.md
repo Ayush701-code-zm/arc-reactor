@@ -18,18 +18,24 @@ Inside the container:
 bash scripts/m1-smoke-linux.sh
 ```
 
-That builds Go + C++, starts `tinyruntimed`, and runs create → list → inspect → stop → start → delete.
+That builds Go + C++, starts `tinyruntimed` + `tinyd`, and runs create → list → inspect → stop → start → delete over HTTP.
 
 ## Manual demo inside the container
+
+Stack: `tiny` (HTTP) → `tinyd` (SQLite + gRPC) → `tinyruntimed` (C++).
 
 ```bash
 # Use build-linux inside Docker so it does not clash with macOS runtime/build
 cmake -S runtime -B runtime/build-linux && cmake --build runtime/build-linux
-(cd control-plane && go build -o bin/tiny ./cmd/tiny)
+(cd control-plane && go build -o bin/tiny ./cmd/tiny && go build -o bin/tinyd ./cmd/tinyd)
 
-runtime/build-linux/tinyruntimed --addr 127.0.0.1:50051 &   # gRPC
 export TINY_DB=/src/data/tiny-docker.db
 export TINY_RUNTIME_ADDR=127.0.0.1:50051
+export TINY_API_ADDR=127.0.0.1:8080
+
+runtime/build-linux/tinyruntimed --addr 127.0.0.1:50051 >/tmp/tinyruntimed.log 2>&1 &
+./control-plane/bin/tinyd >/tmp/tinyd.log 2>&1 &
+curl -sf http://127.0.0.1:8080/healthz
 
 ./control-plane/bin/tiny instance create --name my-server --image alpine --cpu 1 --memory 512MB
 ./control-plane/bin/tiny instance list
@@ -38,6 +44,8 @@ export TINY_RUNTIME_ADDR=127.0.0.1:50051
 ./control-plane/bin/tiny instance start my-server
 ./control-plane/bin/tiny instance delete my-server
 ```
+
+CLI talks only to `tinyd` (`TINY_API_ADDR`). Do not set the CLI at SQLite or gRPC directly.
 
 ## Why `--privileged` and private cgroupns
 

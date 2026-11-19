@@ -50,30 +50,11 @@ Ubuntu Server 24.04 LTS, GCC or Clang (C++20), CMake, Go, gRPC + Protobuf, SQLit
 
 One Linux machine first. Multi-node is later (Phase 8).
 
-## Build (skeleton)
+## Demo (Milestone 1)
 
-```bash
-# Go control plane
-cd control-plane && go test ./... && go build -o bin/tiny ./cmd/tiny && go build -o bin/tinyd ./cmd/tinyd
+Need **Linux** (Ubuntu). On a Mac use Docker as a **dev host only**.
 
-# C++ runtime
-cmake -S runtime -B runtime/build && cmake --build runtime/build && ctest --test-dir runtime/build
-```
-
-Process create/stop with pid namespace + cgroup v2 needs **Linux**. On macOS the runtime builds and returns a clear failure for create.
-
-```bash
-./runtime/build/tinyruntimed --addr 127.0.0.1:50051
-TINY_DB=./data/tiny.db ./control-plane/bin/tiny instance create --name my-server --image alpine --cpu 1 --memory 512MB
-```
-
-Verification / Sonar: [`docs/VERIFICATION.md`](docs/VERIFICATION.md)
-
-**You do for SonarCloud/Vortex:** create project key `tiny-aws`, set `SONAR_TOKEN`, connect Vortex/Sonar in Cursor.
-
-## Linux on Mac (Option C)
-
-Docker is a **dev host only**, not the instance runtime:
+### Fast path (automated)
 
 ```bash
 bash scripts/dev-ubuntu-docker.sh
@@ -81,4 +62,52 @@ bash scripts/dev-ubuntu-docker.sh
 bash scripts/m1-smoke-linux.sh
 ```
 
-Details: [`docs/DEV-UBUNTU-DOCKER.md`](docs/DEV-UBUNTU-DOCKER.md)
+That builds everything, starts `tinyruntimed` + `tinyd`, runs create → list → inspect → stop → start → delete.
+
+### Live demo (you type the commands)
+
+Inside the Ubuntu container (or on a real Ubuntu box):
+
+| Step | Who | What |
+|---|---|---|
+| 1 | you | `bash scripts/dev-ubuntu-docker.sh` (Mac) or open a shell on Ubuntu |
+| 2 | you | Build Go + C++ (commands below) |
+| 3 | you | Start `tinyruntimed`, then `tinyd` |
+| 4 | you | Run the six `tiny instance` commands |
+| 5 | you | Confirm JSON statuses: RUNNING → STOPPED → RUNNING → deleted |
+
+```bash
+cmake -S runtime -B runtime/build-linux && cmake --build runtime/build-linux
+(cd control-plane && go build -o bin/tiny ./cmd/tiny && go build -o bin/tinyd ./cmd/tinyd)
+
+export TINY_DB=/src/data/tiny-docker.db          # or another path on bare Ubuntu
+export TINY_RUNTIME_ADDR=127.0.0.1:50051
+export TINY_API_ADDR=127.0.0.1:8080
+
+runtime/build-linux/tinyruntimed --addr 127.0.0.1:50051 >/tmp/tinyruntimed.log 2>&1 &
+./control-plane/bin/tinyd >/tmp/tinyd.log 2>&1 &
+curl -sf http://127.0.0.1:8080/healthz && echo ok
+
+./control-plane/bin/tiny instance create --name my-server --image alpine --cpu 1 --memory 512MB
+./control-plane/bin/tiny instance list
+./control-plane/bin/tiny instance inspect my-server
+./control-plane/bin/tiny instance stop my-server
+./control-plane/bin/tiny instance start my-server
+./control-plane/bin/tiny instance delete my-server
+```
+
+Flow: `tiny` → HTTP → `tinyd` → gRPC → `tinyruntimed` → Linux process.
+
+Full notes (cgroups on Docker Desktop): [`docs/DEV-UBUNTU-DOCKER.md`](docs/DEV-UBUNTU-DOCKER.md)
+
+## Build (skeleton)
+
+```bash
+# Go control plane
+cd control-plane && go test ./... && go build -o bin/tiny ./cmd/tiny && go build -o bin/tinyd ./cmd/tinyd
+
+# C++ runtime (use build-linux inside Docker)
+cmake -S runtime -B runtime/build-linux && cmake --build runtime/build-linux && ctest --test-dir runtime/build-linux
+```
+
+Verification / Sonar: [`docs/VERIFICATION.md`](docs/VERIFICATION.md)
