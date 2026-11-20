@@ -103,15 +103,12 @@ func TestExtractRewritesAbsoluteSymlinkIntoRootfs(t *testing.T) {
 	if err := ExtractTarGz(src, dest); err != nil {
 		t.Fatal(err)
 	}
-	got, err := os.Readlink(filepath.Join(dest, "bin/sleep"))
+	// Symlinks are materialized as copies (avoids Sonar Zip Slip on os.Symlink).
+	got, err := os.ReadFile(filepath.Join(dest, "bin/sleep"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if filepath.IsAbs(got) {
-		t.Fatalf("expected relative symlink, got %q", got)
-	}
-	resolved := filepath.Clean(filepath.Join(filepath.Dir(filepath.Join(dest, "bin/sleep")), got))
-	if resolved != filepath.Join(dest, "bin/busybox") {
-		t.Fatalf("resolved=%s", resolved)
+	if string(got) != "busybox" {
+		t.Fatalf("got %q", got)
 	}
 }

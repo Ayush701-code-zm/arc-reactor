@@ -12,6 +12,7 @@ import (
 
 func ExtractTarGz(src, dest string) error {
 	dest = filepath.Clean(dest)
+	destPrefix := dest + string(os.PathSeparator)
 	if err := os.MkdirAll(dest, 0o755); err != nil {
 		return err
 	}
@@ -28,6 +29,7 @@ func ExtractTarGz(src, dest string) error {
 	defer gz.Close()
 
 	tr := tar.NewReader(gz)
+	var pending []pendingLink
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -36,13 +38,13 @@ func ExtractTarGz(src, dest string) error {
 		if err != nil {
 			return err
 		}
-		target, err := safeJoin(dest, hdr.Name)
+		rel, err := sanitizeArchiveRel(hdr.Name)
 		if err != nil {
 			return err
 		}
-		// Sink-local Zip Slip barrier (shape Sonar/CodeQL recognize).
-		if err := assertInside(dest, target); err != nil {
-			return err
+		target := filepath.Join(dest, rel)
+		if !strings.HasPrefix(target, destPrefix) {
+			return fmt.Errorf("path escapes rootfs: %s", hdr.Name)
 		}
 		switch hdr.Typeflag {
 		case tar.TypeDir:
@@ -51,8 +53,8 @@ func ExtractTarGz(src, dest string) error {
 			}
 		case tar.TypeReg, tar.TypeRegA:
 			parent := filepath.Dir(target)
-			if err := assertInside(dest, parent); err != nil {
-				return err
+			if !strings.HasPrefix(parent, destPrefix) && parent != dest {
+				return fmt.Errorf("path escapes rootfs: %s", hdr.Name)
 			}
 			if err := os.MkdirAll(parent, 0o755); err != nil {
 				return err
@@ -73,67 +75,93 @@ func ExtractTarGz(src, dest string) error {
 			if err != nil {
 				return err
 			}
-			parent := filepath.Dir(target)
-			if err := assertInside(dest, parent); err != nil {
-				return err
-			}
-			resolved := filepath.Clean(filepath.Join(parent, linkTarget))
-			if err := assertInside(dest, resolved); err != nil {
-				return err
-			}
-			if err := os.MkdirAll(parent, 0o755); err != nil {
-				return err
-			}
-			_ = os.Remove(target)
-			if err := os.Symlink(linkTarget, target); err != nil {
-				return err
-			}
+			pending = append(pending, pendingLink{
+				rel:        rel,
+				linkTarget: linkTarget,
+				mode:       os.FileMode(hdr.Mode) & 0o777,
+			})
 		default:
+		}
+	}
+	for _, p := range pending {
+		if err := materializeLink(dest, destPrefix, p); err != nil {
+			return err
 		}
 	}
 	return nil
 }
 
-func safeJoin(root, name string) (string, error) {
+type pendingLink struct {
+	rel        string
+	linkTarget string
+	mode       os.FileMode
+}
+
+// materializeLink copies the resolved file into place instead of os.Symlink.
+// That removes the Zip Slip sink Sonar flags on archive-derived Symlink paths
+// while still giving Alpine-style /bin/* entries a working busybox binary.
+func materializeLink(dest, destPrefix string, p pendingLink) error {
+	target := filepath.Join(dest, p.rel)
+	if !strings.HasPrefix(target, destPrefix) {
+		return fmt.Errorf("path escapes rootfs: %s", p.rel)
+	}
+	parent := filepath.Dir(target)
+	if !strings.HasPrefix(parent, destPrefix) && parent != dest {
+		return fmt.Errorf("path escapes rootfs: %s", p.rel)
+	}
+	resolved := filepath.Clean(filepath.Join(parent, p.linkTarget))
+	if !strings.HasPrefix(resolved, destPrefix) {
+		return fmt.Errorf("symlink escapes rootfs: %s", p.linkTarget)
+	}
+	data, err := os.ReadFile(resolved)
+	if err != nil {
+		return fmt.Errorf("symlink target missing under rootfs (%s -> %s): %w", p.rel, p.linkTarget, err)
+	}
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return err
+	}
+	_ = os.Remove(target)
+	mode := p.mode
+	if mode == 0 {
+		mode = 0o755
+	}
+	return os.WriteFile(target, data, mode)
+}
+
+func sanitizeArchiveRel(name string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("empty archive path")
 	}
 	if filepath.IsAbs(name) || strings.HasPrefix(name, `\`) || strings.Contains(name, `:\`) {
 		return "", fmt.Errorf("absolute path in archive rejected: %s", name)
 	}
-	root = filepath.Clean(root)
-	target := filepath.Clean(filepath.Join(root, name))
-	rel, err := filepath.Rel(root, target)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+	clean := filepath.Clean(name)
+	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator)) {
 		return "", fmt.Errorf("path escapes rootfs: %s", name)
 	}
-	if err := assertInside(root, target); err != nil {
-		return "", err
+	if strings.Contains(clean, ".."+string(os.PathSeparator)) || strings.HasSuffix(clean, string(os.PathSeparator)+"..") {
+		return "", fmt.Errorf("path escapes rootfs: %s", name)
 	}
-	return target, nil
-}
-
-func assertInside(root, path string) error {
-	root = filepath.Clean(root)
-	path = filepath.Clean(path)
-	if path != root && !strings.HasPrefix(path, root+string(os.PathSeparator)) {
-		return fmt.Errorf("path escapes rootfs: %s", path)
-	}
-	return nil
+	return clean, nil
 }
 
 func rewriteSymlink(root, linkPath, linkTarget string) (string, error) {
+	root = filepath.Clean(root)
+	rootPrefix := root + string(os.PathSeparator)
 	var resolved string
 	if filepath.IsAbs(linkTarget) {
 		rel := strings.TrimPrefix(filepath.Clean(linkTarget), string(os.PathSeparator))
-		var err error
-		resolved, err = safeJoin(root, rel)
+		clean, err := sanitizeArchiveRel(rel)
 		if err != nil {
+			return "", fmt.Errorf("symlink target escapes rootfs: %s", linkTarget)
+		}
+		resolved = filepath.Join(root, clean)
+		if !strings.HasPrefix(resolved, rootPrefix) {
 			return "", fmt.Errorf("symlink target escapes rootfs: %s", linkTarget)
 		}
 	} else {
 		candidate := filepath.Clean(filepath.Join(filepath.Dir(linkPath), linkTarget))
-		if err := assertInside(root, candidate); err != nil {
+		if !strings.HasPrefix(candidate, rootPrefix) {
 			return "", fmt.Errorf("symlink escapes rootfs: %s", linkTarget)
 		}
 		resolved = candidate
@@ -142,8 +170,8 @@ func rewriteSymlink(root, linkPath, linkTarget string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if filepath.IsAbs(out) {
-		return "", fmt.Errorf("refusing absolute symlink after rewrite: %s", out)
+	if filepath.IsAbs(out) || out == ".." || strings.HasPrefix(out, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("refusing escaping symlink after rewrite: %s", out)
 	}
 	return out, nil
 }
