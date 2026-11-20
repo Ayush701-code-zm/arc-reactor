@@ -42,6 +42,9 @@ func ExtractTarGz(src, dest string) error {
 		if err != nil {
 			return err
 		}
+		if rel == "" {
+			continue
+		}
 		target := filepath.Join(dest, rel)
 		if !strings.HasPrefix(target, destPrefix) {
 			return fmt.Errorf("path escapes rootfs: %s", hdr.Name)
@@ -97,9 +100,6 @@ type pendingLink struct {
 	mode       os.FileMode
 }
 
-// materializeLink copies the resolved file into place instead of os.Symlink.
-// That removes the Zip Slip sink Sonar flags on archive-derived Symlink paths
-// while still giving Alpine-style /bin/* entries a working busybox binary.
 func materializeLink(dest, destPrefix string, p pendingLink) error {
 	target := filepath.Join(dest, p.rel)
 	if !strings.HasPrefix(target, destPrefix) {
@@ -135,8 +135,12 @@ func sanitizeArchiveRel(name string) (string, error) {
 	if filepath.IsAbs(name) || strings.HasPrefix(name, `\`) || strings.Contains(name, `:\`) {
 		return "", fmt.Errorf("absolute path in archive rejected: %s", name)
 	}
+	name = strings.TrimPrefix(name, "./")
 	clean := filepath.Clean(name)
-	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator)) {
+	if clean == "." || clean == "" {
+		return "", nil
+	}
+	if clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator)) {
 		return "", fmt.Errorf("path escapes rootfs: %s", name)
 	}
 	if strings.Contains(clean, ".."+string(os.PathSeparator)) || strings.HasSuffix(clean, string(os.PathSeparator)+"..") {

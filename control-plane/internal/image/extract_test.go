@@ -81,6 +81,38 @@ func TestExtractRejectsEscapingRelativeSymlink(t *testing.T) {
 	}
 }
 
+func TestExtractAcceptsDotSlashPrefix(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "img.tar.gz")
+	writeTarGz(t, src, func(tw *tar.Writer) {
+		for _, name := range []string{"./", "./bin/"} {
+			hdr := &tar.Header{Typeflag: tar.TypeDir, Name: name, Mode: 0o755}
+			if err := tw.WriteHeader(hdr); err != nil {
+				t.Fatal(err)
+			}
+		}
+		body := []byte("ok")
+		hdr := &tar.Header{Name: "./bin/hello", Mode: 0o755, Size: int64(len(body))}
+		if err := tw.WriteHeader(hdr); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write(body); err != nil {
+			t.Fatal(err)
+		}
+	})
+	dest := filepath.Join(dir, "rootfs")
+	if err := ExtractTarGz(src, dest); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dest, "bin/hello"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(got) != "ok" {
+		t.Fatalf("got %q", got)
+	}
+}
+
 func TestExtractRewritesAbsoluteSymlinkIntoRootfs(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "img.tar.gz")
@@ -103,7 +135,6 @@ func TestExtractRewritesAbsoluteSymlinkIntoRootfs(t *testing.T) {
 	if err := ExtractTarGz(src, dest); err != nil {
 		t.Fatal(err)
 	}
-	// Symlinks are materialized as copies (avoids Sonar Zip Slip on os.Symlink).
 	got, err := os.ReadFile(filepath.Join(dest, "bin/sleep"))
 	if err != nil {
 		t.Fatal(err)
