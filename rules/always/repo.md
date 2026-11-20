@@ -8,7 +8,7 @@ trigger: always_on
 
 Tiny AWS is a from-scratch mini cloud on Linux primitives. We implement the mechanisms ourselves.
 
-Current phase: **Phase 3 — Storage**. Phase 1 Tiny EC2 and Phase 2 Images are done. Source of truth for now vs later vs end: [`docs/ROADMAP.md`](../../docs/ROADMAP.md).
+Current phase: **Phase 3 Storage is done.** Phase 4+ is locked until explicitly opened. Source of truth: [`docs/ROADMAP.md`](../../docs/ROADMAP.md).
 
 | Path | Contents |
 |---|---|
@@ -40,9 +40,9 @@ Current phase: **Phase 3 — Storage**. Phase 1 Tiny EC2 and Phase 2 Images are 
 # Working rules
 
 - Edit `rules/always/` and `rules/scoped/`, then run `scripts/sync-agent-rules.sh`. Do not edit `AGENTS.md` by hand.
-- Stay on Phase 3 until its exit criteria are met. Do not jump to Phase 4+ early. See `docs/ROADMAP.md` and `docs/M3-CONTRACT.md`.
-- Phase 1 and Phase 2 remain done and supported; do not rip out instance or image lifecycle while building volumes.
-- If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 3 or explicitly open that phase.
+- Phase 3 exit criteria are met. Do not jump to Phase 4+ unless the user explicitly opens it. See `docs/ROADMAP.md` and `docs/M3-CONTRACT.md`.
+- Phase 1–3 remain done and supported; do not rip out instance, image, or volume lifecycle.
+- If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay post-Phase-3 or explicitly open that phase.
 - Go changes stay in `control-plane/`. C++ changes stay in `runtime/`. A contract change starts in `proto/tiny/v1/`.
 - Keep the tree compilable. A stub with a TODO is the right placeholder.
 - Build and test with the commands in `README.md`.
@@ -57,10 +57,10 @@ Shared contracts, loaded when their paths are open:
 | `rules/scoped/cpp-runtime.md` | C++20 runtime, processes, limits |
 | `rules/scoped/proto-contract.md` | `proto/tiny/v1` gRPC contract |
 
-# Phase 3 lock (current)
+# Phase 3 complete (supported)
 
-In scope: volume create/list/inspect/delete, sparse `disk.img` under `volumes/<uuid>/`, attach/detach via gRPC loop+mount at guest `/mnt/<name>`.
+Done: volume create/list/inspect/delete, sparse `disk.img`, attach/detach loop+mount at `/mnt/<name>`, detach-on-instance-delete, `RootfsPath` in SQLite, `scripts/m3-smoke-linux.sh`.
 
-Out of Phase 3: snapshots, multi-attach, remote block store, encryption, online resize, squashfs, `pivot_root`, full VPC, IAM depth, metadata, eBPF, multi-node, Docker-as-runtime, Kubernetes, AWS API wrappers, Rust.
+Still out until a later phase opens: snapshots, multi-attach, remote block store, encryption, online resize, networking product, IAM depth, metadata, eBPF, multi-node.
 
 Do not jump to Phase 4+ unless the user explicitly opens that phase.

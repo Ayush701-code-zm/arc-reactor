@@ -8,7 +8,7 @@ Not a Docker runtime. Not Kubernetes. Not wrapping AWS APIs.
 
 | Now | Later | End |
 |---|---|---|
-| Phase 3 Storage: volumes create/attach (Phase 1 EC2 + Phase 2 Images done) | Networking, IAM, metadata, eBPF, multi-node | Own create → isolate → limit → network → store → auth → schedule, demoed live with `tiny` |
+| Phases 1–3 done (EC2 + Images + Volumes) | Networking, IAM, metadata, eBPF, multi-node | Own create → isolate → limit → network → store → auth → schedule, demoed live with `tiny` |
 
 Full phases and exit criteria: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 

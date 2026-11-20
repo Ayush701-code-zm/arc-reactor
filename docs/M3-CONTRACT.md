@@ -1,6 +1,6 @@
 # Milestone 3 — locked volume contract
 
-Phase 3 is open. Phase 1 Tiny EC2 and Phase 2 Images stay complete. Do not change these locks without an explicit new decision.
+Phase 3 storage slice is complete. Phase 1 and Phase 2 stay complete. Do not change these locks without an explicit new decision.
 
 ## Phase status
 
@@ -8,8 +8,18 @@ Phase 3 is open. Phase 1 Tiny EC2 and Phase 2 Images stay complete. Do not chang
 |---|---|
 | 1 Tiny EC2 | done |
 | 2 Images | done |
-| 3 Storage | CURRENT |
+| 3 Storage | done |
 | 4+ | locked later |
+
+## Exit criteria (met)
+
+| Check | Evidence |
+|---|---|
+| volume create/list/inspect/delete | CLI + HTTP + SQLite |
+| attach/detach loop+mount | live Docker demo + `scripts/m3-smoke-linux.sh` |
+| instance delete detaches volumes first | `instance.Service.Delete` → `DetachAllForInstance` |
+| list/inspect keep `RootfsPath` | SQLite `instances.rootfs_path` |
+| CI | `.github/workflows/m1-linux.yml` runs M3 smoke |
 
 ## Ownership
 

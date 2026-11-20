@@ -66,8 +66,19 @@ func newService(t *testing.T, rt *fakeRuntime) *Service {
 	return &Service{Store: st, Runtime: rt}
 }
 
+type fakeVolumes struct {
+	detached []string
+}
+
+func (f *fakeVolumes) DetachAllForInstance(_ context.Context, instanceID string) error {
+	f.detached = append(f.detached, instanceID)
+	return nil
+}
+
 func TestCreateListStopStartDelete(t *testing.T) {
+	vols := &fakeVolumes{}
 	svc := newService(t, &fakeRuntime{})
+	svc.Volumes = vols
 	ctx := context.Background()
 
 	inst, err := svc.Create(ctx, types.Spec{Name: "web", Image: "alpine", CPU: 1, MemoryBytes: 64 << 20})
@@ -95,6 +106,9 @@ func TestCreateListStopStartDelete(t *testing.T) {
 
 	if err := svc.Delete(ctx, "web"); err != nil {
 		t.Fatal(err)
+	}
+	if len(vols.detached) != 1 || vols.detached[0] != inst.ID {
+		t.Fatalf("detach calls=%v", vols.detached)
 	}
 }
 

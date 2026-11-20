@@ -1,6 +1,6 @@
 # Tiny AWS roadmap
 
-Source of truth for phases. **Now** is Phase 3 — Storage. Later phases are locked until their exit criteria open them.
+Source of truth for phases. **Phase 3 Storage is done.** Phase 4+ stays locked until you explicitly open it.
 
 ## What Tiny AWS is
 
@@ -22,7 +22,7 @@ Hard engineering rule: no Docker-based runtime, no Kubernetes dependency, and no
 | 0 | Foundation | done |
 | 1 | Tiny EC2 | done |
 | 2 | Images | done |
-| 3 | Storage | CURRENT |
+| 3 | Storage | done |
 | 4 | Networking | locked later |
 | 5 | IAM | locked later |
 | 6 | Metadata | locked later |
@@ -131,7 +131,7 @@ Depends on: Phase 1 stable (done).
 
 ---
 
-## PHASE 3 — Tiny storage (EBS-like) (CURRENT FOCUS)
+## PHASE 3 — Tiny storage (EBS-like) (done)
 
 Build:
 

@@ -14,10 +14,15 @@ type Service struct {
 	Store   *store.Store
 	Runtime runtimeclient.Client
 	Images  ImageResolver
+	Volumes VolumeDetacher
 }
 
 type ImageResolver interface {
 	ResolveRootfs(ctx context.Context, name string) (types.Image, error)
+}
+
+type VolumeDetacher interface {
+	DetachAllForInstance(ctx context.Context, instanceID string) error
 }
 
 func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, error) {
@@ -149,6 +154,11 @@ func (s *Service) Delete(ctx context.Context, name string) error {
 	inst, err := s.Store.GetByName(ctx, name)
 	if err != nil {
 		return err
+	}
+	if s.Volumes != nil {
+		if err := s.Volumes.DetachAllForInstance(ctx, inst.ID); err != nil {
+			return err
+		}
 	}
 	if err := s.Runtime.DeleteInstance(ctx, inst.ID); err != nil {
 		_ = s.Store.UpdateLifecycle(ctx, inst.ID, types.StatusFailed, inst.PID, err.Error())

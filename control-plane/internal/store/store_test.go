@@ -21,6 +21,7 @@ func TestInsertListInspectDelete(t *testing.T) {
 		ID:          "id-1",
 		Name:        "web",
 		Image:       "alpine",
+		RootfsPath:  "/tmp/rootfs",
 		CPU:         1,
 		MemoryBytes: 64 << 20,
 		Status:      types.StatusPending,
@@ -30,7 +31,7 @@ func TestInsertListInspectDelete(t *testing.T) {
 	}
 
 	list, err := s.List(ctx)
-	if err != nil || len(list) != 1 || list[0].Name != "web" {
+	if err != nil || len(list) != 1 || list[0].Name != "web" || list[0].RootfsPath != "/tmp/rootfs" {
 		t.Fatalf("list=%v err=%v", list, err)
 	}
 

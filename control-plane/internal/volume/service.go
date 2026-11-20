@@ -152,6 +152,19 @@ func (s *Service) Attach(ctx context.Context, volumeName, instanceName string) (
 	return vol, nil
 }
 
+func (s *Service) DetachAllForInstance(ctx context.Context, instanceID string) error {
+	vols, err := s.Store.ListVolumesByInstanceID(ctx, instanceID)
+	if err != nil {
+		return err
+	}
+	for _, vol := range vols {
+		if _, err := s.Detach(ctx, vol.Name); err != nil {
+			return fmt.Errorf("detach volume %q: %w", vol.Name, err)
+		}
+	}
+	return nil
+}
+
 func (s *Service) Detach(ctx context.Context, volumeName string) (types.Volume, error) {
 	vol, err := s.Store.GetVolumeByName(ctx, volumeName)
 	if err != nil {

@@ -43,8 +43,8 @@ func main() {
 	defer rt.Close()
 
 	imgSvc := &image.Service{Store: st, ImageRoot: imageRoot}
-	svc := &instance.Service{Store: st, Runtime: rt, Images: imgSvc}
 	volSvc := &volume.Service{Store: st, Runtime: rt, Images: imgSvc, VolRoot: volRoot}
+	svc := &instance.Service{Store: st, Runtime: rt, Images: imgSvc, Volumes: volSvc}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -129,6 +129,10 @@ func main() {
 		}
 		img, err := imgSvc.Import(r.Context(), body.Name, body.File)
 		if err != nil {
+			if img.ID == "" {
+				writeErr(w, statusFor(err), err)
+				return
+			}
 			writeJSON(w, http.StatusInternalServerError, img)
 			return
 		}

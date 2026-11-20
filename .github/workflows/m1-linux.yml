@@ -24,7 +24,7 @@ jobs:
             protobuf-compiler protobuf-compiler-grpc \
             libprotobuf-dev libgrpc++-dev
 
-      - name: M1 smoke with cgroup required
+      - name: M1/M2 smoke with cgroup required
         env:
           TINY_REQUIRE_CGROUP: "1"
           TINY_CGROUP_PARENT: "/sys/fs/cgroup"
@@ -41,3 +41,26 @@ jobs:
             TINY_RUNTIME_ADDR="$TINY_RUNTIME_ADDR" \
             TINY_API_ADDR="$TINY_API_ADDR" \
             bash scripts/m1-smoke-linux.sh
+
+      - name: M3 volume smoke with cgroup required
+        env:
+          TINY_REQUIRE_CGROUP: "1"
+          TINY_CGROUP_PARENT: "/sys/fs/cgroup"
+          TINY_M3_DB: ${{ github.workspace }}/data/tiny-m3-ci.db
+          TINY_M3_RUNTIME_ADDR: "127.0.0.1:15051"
+          TINY_M3_API_ADDR: "127.0.0.1:18080"
+          TINY_M3_IMAGE_ROOT: ${{ github.workspace }}/data/images-m3
+          TINY_M3_VOLUME_ROOT: ${{ github.workspace }}/data/volumes-m3
+        run: |
+          sudo apt-get install -y --no-install-recommends e2fsprogs
+          sudo -E env \
+            "PATH=$PATH" \
+            "HOME=$HOME" \
+            TINY_REQUIRE_CGROUP=1 \
+            TINY_CGROUP_PARENT=/sys/fs/cgroup \
+            TINY_M3_DB="$TINY_M3_DB" \
+            TINY_M3_RUNTIME_ADDR="$TINY_M3_RUNTIME_ADDR" \
+            TINY_M3_API_ADDR="$TINY_M3_API_ADDR" \
+            TINY_M3_IMAGE_ROOT="$TINY_M3_IMAGE_ROOT" \
+            TINY_M3_VOLUME_ROOT="$TINY_M3_VOLUME_ROOT" \
+            bash scripts/m3-smoke-linux.sh
