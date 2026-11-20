@@ -11,6 +11,7 @@ import (
 )
 
 func ExtractTarGz(src, dest string) error {
+	dest = filepath.Clean(dest)
 	if err := os.MkdirAll(dest, 0o755); err != nil {
 		return err
 	}
@@ -35,13 +36,9 @@ func ExtractTarGz(src, dest string) error {
 		if err != nil {
 			return err
 		}
-		name := filepath.Clean(hdr.Name)
-		if name == "." || name == ".." || strings.HasPrefix(name, "..") {
-			continue
-		}
-		target := filepath.Join(dest, name)
-		if !strings.HasPrefix(target, filepath.Clean(dest)+string(os.PathSeparator)) && target != filepath.Clean(dest) {
-			return fmt.Errorf("illegal path in archive: %s", hdr.Name)
+		target, err := safeJoin(dest, hdr.Name)
+		if err != nil {
+			return err
 		}
 		switch hdr.Typeflag {
 		case tar.TypeDir:
@@ -64,6 +61,9 @@ func ExtractTarGz(src, dest string) error {
 				return err
 			}
 		case tar.TypeSymlink:
+			if err := validateSymlink(dest, target, hdr.Linkname); err != nil {
+				return err
+			}
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
@@ -73,6 +73,37 @@ func ExtractTarGz(src, dest string) error {
 			}
 		default:
 		}
+	}
+	return nil
+}
+
+func safeJoin(root, name string) (string, error) {
+	if name == "" {
+		return "", fmt.Errorf("empty archive path")
+	}
+	if filepath.IsAbs(name) {
+		return "", fmt.Errorf("absolute path in archive rejected: %s", name)
+	}
+	clean := filepath.Clean(name)
+	if clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("path escapes rootfs: %s", name)
+	}
+	target := filepath.Join(root, clean)
+	rel, err := filepath.Rel(root, target)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return "", fmt.Errorf("path escapes rootfs: %s", name)
+	}
+	return target, nil
+}
+
+func validateSymlink(root, linkPath, linkTarget string) error {
+	if filepath.IsAbs(linkTarget) {
+		return fmt.Errorf("absolute symlink rejected: %s", linkTarget)
+	}
+	resolved := filepath.Clean(filepath.Join(filepath.Dir(linkPath), linkTarget))
+	rel, err := filepath.Rel(root, resolved)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		return fmt.Errorf("symlink escapes rootfs: %s", linkTarget)
 	}
 	return nil
 }

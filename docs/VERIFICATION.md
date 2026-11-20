@@ -21,7 +21,7 @@ Two levers (use both until tests catch up):
 | Lever | Who | What |
 |---|---|---|
 | Repo | agent | `sonar.coverage.exclusions` skips C++/cmd/gRPC from coverage math (no C++ coverage report yet) |
-| Cloud | you | Assign quality gate `M1 Soft` without a hard coverage condition |
+| Cloud | you | Quality gate `M1 Soft` / `M2 Soft`: no hard coverage; keep Security Rating A; duplication ≤ 5% is OK while Phase 2 lands |
 
 ### Soft gate in SonarCloud (you)
 

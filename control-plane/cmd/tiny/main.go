@@ -52,80 +52,26 @@ func runInstance(client *http.Client, base string, args []string) {
 			fail(err)
 		}
 		var inst types.Instance
-		code, err := doJSON(client, http.MethodPost, base+"/v1/instances", spec, &inst)
-		if err != nil {
-			fail(err)
-		}
-		_ = printJSON(inst)
-		if code >= 300 {
-			fail(fmt.Errorf("create failed: HTTP %d", code))
-		}
+		callJSON(client, http.MethodPost, base+"/v1/instances", spec, &inst, "create")
 	case "list":
 		var list []types.Instance
-		code, err := doJSON(client, http.MethodGet, base+"/v1/instances", nil, &list)
-		if err != nil {
-			fail(err)
-		}
-		_ = printJSON(list)
-		if code >= 300 {
-			fail(fmt.Errorf("list failed: HTTP %d", code))
-		}
+		callJSON(client, http.MethodGet, base+"/v1/instances", nil, &list, "list")
 	case "inspect":
-		name, err := oneName(args[1:])
-		if err != nil {
-			fail(err)
-		}
+		name := mustName(args[1:])
 		var inst types.Instance
-		code, err := doJSON(client, http.MethodGet, base+"/v1/instances/"+url.PathEscape(name), nil, &inst)
-		if err != nil {
-			fail(err)
-		}
-		_ = printJSON(inst)
-		if code >= 300 {
-			fail(fmt.Errorf("inspect failed: HTTP %d", code))
-		}
+		callJSON(client, http.MethodGet, base+"/v1/instances/"+url.PathEscape(name), nil, &inst, "inspect")
 	case "stop":
-		name, err := oneName(args[1:])
-		if err != nil {
-			fail(err)
-		}
+		name := mustName(args[1:])
 		var inst types.Instance
-		code, err := doJSON(client, http.MethodPost, base+"/v1/instances/"+url.PathEscape(name)+"/stop", nil, &inst)
-		if err != nil {
-			fail(err)
-		}
-		_ = printJSON(inst)
-		if code >= 300 {
-			fail(fmt.Errorf("stop failed: HTTP %d", code))
-		}
+		callJSON(client, http.MethodPost, base+"/v1/instances/"+url.PathEscape(name)+"/stop", nil, &inst, "stop")
 	case "start":
-		name, err := oneName(args[1:])
-		if err != nil {
-			fail(err)
-		}
+		name := mustName(args[1:])
 		var inst types.Instance
-		code, err := doJSON(client, http.MethodPost, base+"/v1/instances/"+url.PathEscape(name)+"/start", nil, &inst)
-		if err != nil {
-			fail(err)
-		}
-		_ = printJSON(inst)
-		if code >= 300 {
-			fail(fmt.Errorf("start failed: HTTP %d", code))
-		}
+		callJSON(client, http.MethodPost, base+"/v1/instances/"+url.PathEscape(name)+"/start", nil, &inst, "start")
 	case "delete":
-		name, err := oneName(args[1:])
-		if err != nil {
-			fail(err)
-		}
+		name := mustName(args[1:])
 		var out map[string]any
-		code, err := doJSON(client, http.MethodDelete, base+"/v1/instances/"+url.PathEscape(name), nil, &out)
-		if err != nil {
-			fail(err)
-		}
-		_ = printJSON(out)
-		if code >= 300 {
-			fail(fmt.Errorf("delete failed: HTTP %d", code))
-		}
+		callJSON(client, http.MethodDelete, base+"/v1/instances/"+url.PathEscape(name), nil, &out, "delete")
 	default:
 		usage()
 		os.Exit(2)
@@ -149,56 +95,41 @@ func runImage(client *http.Client, base string, args []string) {
 		}
 		body := map[string]string{"Name": name, "File": abs}
 		var img types.Image
-		code, err := doJSON(client, http.MethodPost, base+"/v1/images", body, &img)
-		if err != nil {
-			fail(err)
-		}
-		_ = printJSON(img)
-		if code >= 300 {
-			fail(fmt.Errorf("import failed: HTTP %d", code))
-		}
+		callJSON(client, http.MethodPost, base+"/v1/images", body, &img, "import")
 	case "list":
 		var list []types.Image
-		code, err := doJSON(client, http.MethodGet, base+"/v1/images", nil, &list)
-		if err != nil {
-			fail(err)
-		}
-		_ = printJSON(list)
-		if code >= 300 {
-			fail(fmt.Errorf("list failed: HTTP %d", code))
-		}
+		callJSON(client, http.MethodGet, base+"/v1/images", nil, &list, "list")
 	case "inspect":
-		name, err := oneName(args[1:])
-		if err != nil {
-			fail(err)
-		}
+		name := mustName(args[1:])
 		var img types.Image
-		code, err := doJSON(client, http.MethodGet, base+"/v1/images/"+url.PathEscape(name), nil, &img)
-		if err != nil {
-			fail(err)
-		}
-		_ = printJSON(img)
-		if code >= 300 {
-			fail(fmt.Errorf("inspect failed: HTTP %d", code))
-		}
+		callJSON(client, http.MethodGet, base+"/v1/images/"+url.PathEscape(name), nil, &img, "inspect")
 	case "delete":
-		name, err := oneName(args[1:])
-		if err != nil {
-			fail(err)
-		}
+		name := mustName(args[1:])
 		var out map[string]any
-		code, err := doJSON(client, http.MethodDelete, base+"/v1/images/"+url.PathEscape(name), nil, &out)
-		if err != nil {
-			fail(err)
-		}
-		_ = printJSON(out)
-		if code >= 300 {
-			fail(fmt.Errorf("delete failed: HTTP %d", code))
-		}
+		callJSON(client, http.MethodDelete, base+"/v1/images/"+url.PathEscape(name), nil, &out, "delete")
 	default:
 		usage()
 		os.Exit(2)
 	}
+}
+
+func callJSON(client *http.Client, method, rawURL string, body any, out any, op string) {
+	code, err := doJSON(client, method, rawURL, body, out)
+	if err != nil {
+		fail(err)
+	}
+	_ = printJSON(out)
+	if code >= 300 {
+		fail(fmt.Errorf("%s failed: HTTP %d", op, code))
+	}
+}
+
+func mustName(args []string) string {
+	name, err := oneName(args)
+	if err != nil {
+		fail(err)
+	}
+	return name
 }
 
 func doJSON(client *http.Client, method, rawURL string, body any, out any) (int, error) {
