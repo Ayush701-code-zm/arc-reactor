@@ -29,6 +29,7 @@ func ExtractTarGz(src, dest string) error {
 	defer gz.Close()
 
 	tr := tar.NewReader(gz)
+	var pending []pendingLink
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -77,24 +78,78 @@ func ExtractTarGz(src, dest string) error {
 			if err != nil {
 				return err
 			}
-			parent := filepath.Dir(target)
-			if !insideRoot(dest, destPrefix, parent) {
-				return fmt.Errorf("path escapes rootfs: %s", hdr.Name)
-			}
-			if err := os.MkdirAll(parent, 0o755); err != nil {
-				return err
-			}
-			_ = os.Remove(target)
-			if !insideRoot(dest, destPrefix, target) {
-				return fmt.Errorf("path escapes rootfs: %s", hdr.Name)
-			}
-			if err := os.Symlink(linkTarget, target); err != nil {
-				return err
-			}
+			pending = append(pending, pendingLink{
+				rel:        rel,
+				linkTarget: linkTarget,
+				mode:       os.FileMode(hdr.Mode) & 0o777,
+			})
 		default:
 		}
 	}
+	for len(pending) > 0 {
+		var left []pendingLink
+		progress := false
+		for _, p := range pending {
+			done, err := materializeLink(dest, destPrefix, p)
+			if err != nil {
+				return err
+			}
+			if done {
+				progress = true
+				continue
+			}
+			left = append(left, p)
+		}
+		if !progress {
+			break
+		}
+		pending = left
+	}
 	return nil
+}
+
+type pendingLink struct {
+	rel        string
+	linkTarget string
+	mode       os.FileMode
+}
+
+func materializeLink(dest, destPrefix string, p pendingLink) (bool, error) {
+	target := filepath.Join(dest, p.rel)
+	if !insideRoot(dest, destPrefix, target) {
+		return false, fmt.Errorf("path escapes rootfs: %s", p.rel)
+	}
+	parent := filepath.Dir(target)
+	if !insideRoot(dest, destPrefix, parent) {
+		return false, fmt.Errorf("path escapes rootfs: %s", p.rel)
+	}
+	resolved := filepath.Clean(filepath.Join(parent, p.linkTarget))
+	if !insideRoot(dest, destPrefix, resolved) {
+		return false, fmt.Errorf("symlink escapes rootfs: %s", p.linkTarget)
+	}
+	st, err := os.Stat(resolved)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	if err := os.MkdirAll(parent, 0o755); err != nil {
+		return false, err
+	}
+	_ = os.Remove(target)
+	if st.IsDir() {
+		return true, os.MkdirAll(target, 0o755)
+	}
+	data, err := os.ReadFile(resolved)
+	if err != nil {
+		return false, err
+	}
+	mode := p.mode
+	if mode == 0 {
+		mode = 0o755
+	}
+	return true, os.WriteFile(target, data, mode)
 }
 
 func sanitizeArchiveRel(name string) (string, error) {

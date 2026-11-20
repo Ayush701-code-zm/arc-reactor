@@ -90,7 +90,7 @@ func TestExtractRejectsEscapingRelativeSymlink(t *testing.T) {
 	}
 }
 
-func TestExtractKeepsInRootSymlinks(t *testing.T) {
+func TestExtractMaterializesInRootLinks(t *testing.T) {
 	dest := mustExtract(t, func(tw *tar.Writer) {
 		for _, name := range []string{"bin/", "run/", "var/", "etc/", "proc/"} {
 			if err := tw.WriteHeader(&tar.Header{Typeflag: tar.TypeDir, Name: name, Mode: 0o755}); err != nil {
@@ -119,31 +119,21 @@ func TestExtractKeepsInRootSymlinks(t *testing.T) {
 		}
 	})
 
-	got, err := os.Readlink(filepath.Join(dest, "bin/sleep"))
+	got, err := os.ReadFile(filepath.Join(dest, "bin/sleep"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if filepath.IsAbs(got) {
-		t.Fatalf("expected relative symlink, got %q", got)
+	if string(got) != "busybox" {
+		t.Fatalf("got %q", got)
 	}
-	resolved := filepath.Clean(filepath.Join(dest, "bin", got))
-	if resolved != filepath.Join(dest, "bin/busybox") {
-		t.Fatalf("resolved=%s", resolved)
-	}
-
-	got, err = os.Readlink(filepath.Join(dest, "var/run"))
+	st, err := os.Stat(filepath.Join(dest, "var/run"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != "../run" {
-		t.Fatalf("var/run -> %q", got)
+	if !st.IsDir() {
+		t.Fatal("expected var/run directory")
 	}
-
-	got, err = os.Readlink(filepath.Join(dest, "etc/mtab"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != "../proc/mounts" {
-		t.Fatalf("etc/mtab -> %q", got)
+	if _, err := os.Lstat(filepath.Join(dest, "etc/mtab")); !os.IsNotExist(err) {
+		t.Fatalf("expected dangling etc/mtab skipped, err=%v", err)
 	}
 }
