@@ -194,8 +194,8 @@ AttachResult AttachVolumeToInstance(int32_t supervisor_pid, const std::string& d
   const bool mounted = RunInMountNs(
       mnt_pid,
       [&]() -> int {
-        if (mkdir((rootfs_path + "/mnt").c_str(), 0755) != 0 && errno != EEXIST) return 20;
-        if (mkdir(mount_path.c_str(), 0755) != 0 && errno != EEXIST) return 21;
+        if (mkdir((rootfs_path + "/mnt").c_str(), 0750) != 0 && errno != EEXIST) return 20;
+        if (mkdir(mount_path.c_str(), 0750) != 0 && errno != EEXIST) return 21;
         if (mount(device.c_str(), mount_path.c_str(), "ext4", 0, nullptr) != 0) return 22;
         return 0;
       },
