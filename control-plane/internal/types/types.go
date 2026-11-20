@@ -55,3 +55,24 @@ type Image struct {
 	Status       ImageStatus
 	ErrorMessage string
 }
+
+type VolumeStatus string
+
+const (
+	VolumeStatusAvailable VolumeStatus = "AVAILABLE"
+	VolumeStatusAttached  VolumeStatus = "ATTACHED"
+	VolumeStatusFailed    VolumeStatus = "FAILED"
+)
+
+type Volume struct {
+	ID                 string
+	Name               string
+	SizeBytes          uint64
+	DiskPath           string
+	Status             VolumeStatus
+	AttachedInstanceID string
+	AttachedInstance   string
+	DevicePath         string
+	MountName          string
+	ErrorMessage       string
+}

@@ -7,8 +7,9 @@ Phase 2 is open. Phase 1 Tiny EC2 stays complete. Do not change these locks with
 | Phase | Status |
 |---|---|
 | 1 Tiny EC2 | done |
-| 2 Images | CURRENT |
-| 3+ | locked later |
+| 2 Images | done |
+| 3 Storage | CURRENT |
+| 4+ | locked later |
 
 ## Artifact
 

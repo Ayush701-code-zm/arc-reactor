@@ -13,6 +13,7 @@ paths:
 # Go control plane
 
 Locked M1 contract: [`docs/M1-CONTRACT.md`](../../docs/M1-CONTRACT.md).
+Locked M3 volume contract: [`docs/M3-CONTRACT.md`](../../docs/M3-CONTRACT.md).
 
 - `cmd/tiny` is the CLI. `cmd/tinyd` is the daemon. Shared behavior lives in `internal/`.
 - Go assigns the UUID id, enforces unique `--name`, and owns desired state in SQLite.
@@ -37,3 +38,9 @@ Locked M1 contract: [`docs/M1-CONTRACT.md`](../../docs/M1-CONTRACT.md).
 | `tiny instance stop` | name |
 | `tiny instance start` | name |
 | `tiny instance delete` | name |
+| `tiny volume create` | `--name`, `--size` |
+| `tiny volume list` | none |
+| `tiny volume inspect` | name |
+| `tiny volume delete` | name |
+| `tiny volume attach` | `--volume`, `--instance` |
+| `tiny volume detach` | `--volume` |

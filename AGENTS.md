@@ -10,7 +10,7 @@ These rules are hard. If a tool default conflicts with them, follow these rules 
 
 Tiny AWS is a from-scratch mini cloud on Linux primitives. We implement the mechanisms ourselves.
 
-Current phase: **Phase 2 — Images**. Phase 1 Tiny EC2 is done. Source of truth for now vs later vs end: [`docs/ROADMAP.md`](../../docs/ROADMAP.md).
+Current phase: **Phase 3 — Storage**. Phase 1 Tiny EC2 and Phase 2 Images are done. Source of truth for now vs later vs end: [`docs/ROADMAP.md`](../../docs/ROADMAP.md).
 
 | Path | Contents |
 |---|---|
@@ -42,9 +42,9 @@ Current phase: **Phase 2 — Images**. Phase 1 Tiny EC2 is done. Source of truth
 # Working rules
 
 - Edit `rules/always/` and `rules/scoped/`, then run `scripts/sync-agent-rules.sh`. Do not edit `AGENTS.md` by hand.
-- Stay on Phase 2 until its exit criteria are met. Do not jump to Phase 3+ early. See `docs/ROADMAP.md` and `docs/M2-CONTRACT.md`.
-- Phase 1 remains done and supported; do not rip out M1 lifecycle while building images.
-- If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 2 or explicitly open that phase.
+- Stay on Phase 3 until its exit criteria are met. Do not jump to Phase 4+ early. See `docs/ROADMAP.md` and `docs/M3-CONTRACT.md`.
+- Phase 1 and Phase 2 remain done and supported; do not rip out instance or image lifecycle while building volumes.
+- If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 3 or explicitly open that phase.
 - Go changes stay in `control-plane/`. C++ changes stay in `runtime/`. A contract change starts in `proto/tiny/v1/`.
 - Keep the tree compilable. A stub with a TODO is the right placeholder.
 - Build and test with the commands in `README.md`.
@@ -59,13 +59,13 @@ Shared contracts, loaded when their paths are open:
 | `rules/scoped/cpp-runtime.md` | C++20 runtime, processes, limits |
 | `rules/scoped/proto-contract.md` | `proto/tiny/v1` gRPC contract |
 
-# Phase 2 lock (current)
+# Phase 3 lock (current)
 
-In scope: local `.tar.gz` image import/list/inspect/delete, unpack to `images/<uuid>/rootfs`, instance create resolves image name to `rootfs_path`, C++ boots with mount ns + `chroot`.
+In scope: volume create/list/inspect/delete, sparse `disk.img` under `volumes/<uuid>/`, attach/detach via gRPC loop+mount at guest `/mnt/<name>`.
 
-Out of Phase 2: squashfs, `pivot_root`, remote registry, storage product, full VPC, IAM depth, metadata, eBPF, multi-node, Docker-as-runtime, Kubernetes, AWS API wrappers, Rust.
+Out of Phase 3: snapshots, multi-attach, remote block store, encryption, online resize, squashfs, `pivot_root`, full VPC, IAM depth, metadata, eBPF, multi-node, Docker-as-runtime, Kubernetes, AWS API wrappers, Rust.
 
-Do not jump to Phase 3+ unless the user explicitly opens that phase.
+Do not jump to Phase 4+ unless the user explicitly opens that phase.
 
 
 # What Tiny AWS is
@@ -109,9 +109,9 @@ Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARC
 
 # Phase gate
 
-Current phase: **Phase 2 — Images** (Phase 1 Tiny EC2 is done).
+Current phase: **Phase 3 — Storage** (Phase 1 Tiny EC2 and Phase 2 Images are done).
 
-Do not implement Phase 3+ until Phase 2 exit criteria are met, unless the user explicitly opens the next phase.
+Do not implement Phase 4+ until Phase 3 exit criteria are met, unless the user explicitly opens the next phase.
 
 If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 2 or explicitly open that phase.
 

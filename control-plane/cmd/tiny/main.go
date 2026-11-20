@@ -34,6 +34,8 @@ func main() {
 		runInstance(client, base, os.Args[2:])
 	case "image":
 		runImage(client, base, os.Args[2:])
+	case "volume":
+		runVolume(client, base, os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -107,6 +109,52 @@ func runImage(client *http.Client, base string, args []string) {
 		name := mustName(args[1:])
 		var out map[string]any
 		callJSON(client, http.MethodDelete, base+"/v1/images/"+url.PathEscape(name), nil, &out, "delete")
+	default:
+		usage()
+		os.Exit(2)
+	}
+}
+
+func runVolume(client *http.Client, base string, args []string) {
+	if len(args) < 1 {
+		usage()
+		os.Exit(2)
+	}
+	switch args[0] {
+	case "create":
+		name, size, err := parseVolumeCreate(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		body := map[string]any{"Name": name, "SizeBytes": size}
+		var vol types.Volume
+		callJSON(client, http.MethodPost, base+"/v1/volumes", body, &vol, "create")
+	case "list":
+		var list []types.Volume
+		callJSON(client, http.MethodGet, base+"/v1/volumes", nil, &list, "list")
+	case "inspect":
+		name := mustName(args[1:])
+		var vol types.Volume
+		callJSON(client, http.MethodGet, base+"/v1/volumes/"+url.PathEscape(name), nil, &vol, "inspect")
+	case "delete":
+		name := mustName(args[1:])
+		var out map[string]any
+		callJSON(client, http.MethodDelete, base+"/v1/volumes/"+url.PathEscape(name), nil, &out, "delete")
+	case "attach":
+		volName, instName, err := parseVolumeAttach(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		body := map[string]string{"Instance": instName}
+		var vol types.Volume
+		callJSON(client, http.MethodPost, base+"/v1/volumes/"+url.PathEscape(volName)+"/attach", body, &vol, "attach")
+	case "detach":
+		volName, err := parseVolumeDetach(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		var vol types.Volume
+		callJSON(client, http.MethodPost, base+"/v1/volumes/"+url.PathEscape(volName)+"/detach", map[string]any{}, &vol, "detach")
 	default:
 		usage()
 		os.Exit(2)
@@ -239,6 +287,86 @@ func parseImageImport(args []string) (string, string, error) {
 	return name, file, nil
 }
 
+func parseVolumeCreate(args []string) (string, uint64, error) {
+	var name, sizeStr string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--name":
+			i++
+			if i >= len(args) {
+				return "", 0, fmt.Errorf("--name needs a value")
+			}
+			name = args[i]
+		case "--size":
+			i++
+			if i >= len(args) {
+				return "", 0, fmt.Errorf("--size needs a value")
+			}
+			sizeStr = args[i]
+		default:
+			return "", 0, fmt.Errorf("unknown flag %s", args[i])
+		}
+	}
+	if name == "" || sizeStr == "" {
+		return "", 0, fmt.Errorf("--name and --size are required")
+	}
+	b, err := memory.ParseSize(sizeStr)
+	if err != nil {
+		return "", 0, err
+	}
+	return name, b, nil
+}
+
+func parseVolumeAttach(args []string) (string, string, error) {
+	var vol, inst string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--volume":
+			i++
+			if i >= len(args) {
+				return "", "", fmt.Errorf("--volume needs a value")
+			}
+			vol = args[i]
+		case "--instance":
+			i++
+			if i >= len(args) {
+				return "", "", fmt.Errorf("--instance needs a value")
+			}
+			inst = args[i]
+		default:
+			return "", "", fmt.Errorf("unknown flag %s", args[i])
+		}
+	}
+	if vol == "" || inst == "" {
+		return "", "", fmt.Errorf("--volume and --instance are required")
+	}
+	return vol, inst, nil
+}
+
+func parseVolumeDetach(args []string) (string, error) {
+	var vol string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--volume":
+			i++
+			if i >= len(args) {
+				return "", fmt.Errorf("--volume needs a value")
+			}
+			vol = args[i]
+		default:
+			if vol == "" && !strings.HasPrefix(args[i], "--") {
+				vol = args[i]
+				continue
+			}
+			return "", fmt.Errorf("unknown flag %s", args[i])
+		}
+	}
+	if vol == "" {
+		return "", fmt.Errorf("--volume is required")
+	}
+	return vol, nil
+}
+
 func oneName(args []string) (string, error) {
 	if len(args) != 1 {
 		return "", fmt.Errorf("expected <name>")
@@ -271,6 +399,12 @@ tiny image import --name NAME --file PATH.tar.gz
 tiny image list
 tiny image inspect NAME
 tiny image delete NAME
+tiny volume create --name NAME --size SIZE
+tiny volume list
+tiny volume inspect NAME
+tiny volume delete NAME
+tiny volume attach --volume NAME --instance INST
+tiny volume detach --volume NAME
 
 Env: TINY_API_ADDR (default 127.0.0.1:8080). CLI talks only to tinyd over HTTP.
 `)

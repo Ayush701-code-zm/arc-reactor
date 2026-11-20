@@ -14,6 +14,7 @@ paths:
 
 Locked M1 decisions: [`docs/M1-CONTRACT.md`](../../docs/M1-CONTRACT.md).
 Locked M2 image decisions: [`docs/M2-CONTRACT.md`](../../docs/M2-CONTRACT.md).
+Locked M3 volume decisions: [`docs/M3-CONTRACT.md`](../../docs/M3-CONTRACT.md).
 
 | RPC | Use |
 |---|---|
@@ -23,6 +24,8 @@ Locked M2 image decisions: [`docs/M2-CONTRACT.md`](../../docs/M2-CONTRACT.md).
 | `StartInstance` | Start a stopped instance by `id` |
 | `StopInstance` | SIGTERM, wait 5000 ms, then SIGKILL |
 | `DeleteInstance` | Stop if needed, then remove runtime state |
+| `AttachVolume` | loop + mount `disk_path` into instance mount ns at `rootfs_path/mnt/<mount_name>` |
+| `DetachVolume` | umount + loop detach |
 
 # CreateInstance fields (M1 + M2)
 

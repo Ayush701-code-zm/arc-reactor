@@ -9,6 +9,7 @@ add_library(tiny_process
   src/process/supervisor.cc
   src/process/cgroup.cc
   src/process/namespace.cc
+  src/process/volume.cc
 )
 target_include_directories(tiny_process PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 

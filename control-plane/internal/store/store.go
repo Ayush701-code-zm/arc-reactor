@@ -55,6 +55,18 @@ CREATE TABLE IF NOT EXISTS images (
   rootfs_path TEXT NOT NULL,
   status TEXT NOT NULL,
   error_message TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS volumes (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  size_bytes INTEGER NOT NULL,
+  disk_path TEXT NOT NULL,
+  status TEXT NOT NULL,
+  attached_instance_id TEXT NOT NULL DEFAULT '',
+  attached_instance TEXT NOT NULL DEFAULT '',
+  device_path TEXT NOT NULL DEFAULT '',
+  mount_name TEXT NOT NULL DEFAULT '',
+  error_message TEXT NOT NULL DEFAULT ''
 );`)
 	return err
 }
@@ -109,6 +121,86 @@ SELECT id, name, artifact_path, rootfs_path, status, error_message FROM images O
 func (s *Store) DeleteImage(ctx context.Context, id string) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM images WHERE id = ?`, id)
 	return err
+}
+
+func (s *Store) InsertVolume(ctx context.Context, vol types.Volume) error {
+	_, err := s.db.ExecContext(ctx, `
+INSERT INTO volumes (
+  id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		vol.ID, vol.Name, vol.SizeBytes, vol.DiskPath, string(vol.Status),
+		vol.AttachedInstanceID, vol.AttachedInstance, vol.DevicePath, vol.MountName, vol.ErrorMessage)
+	if err != nil {
+		return fmt.Errorf("insert volume: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) GetVolumeByName(ctx context.Context, name string) (types.Volume, error) {
+	row := s.db.QueryRowContext(ctx, `
+SELECT id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message
+FROM volumes WHERE name = ?`, name)
+	return scanVolume(row)
+}
+
+func (s *Store) GetVolumeByID(ctx context.Context, id string) (types.Volume, error) {
+	row := s.db.QueryRowContext(ctx, `
+SELECT id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message
+FROM volumes WHERE id = ?`, id)
+	return scanVolume(row)
+}
+
+func (s *Store) ListVolumes(ctx context.Context) ([]types.Volume, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message
+FROM volumes ORDER BY name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []types.Volume
+	for rows.Next() {
+		vol, err := scanVolume(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, vol)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) UpdateVolumeAttach(ctx context.Context, id string, status types.VolumeStatus, instanceID, instanceName, devicePath, mountName, errMsg string) error {
+	res, err := s.db.ExecContext(ctx, `
+UPDATE volumes SET status = ?, attached_instance_id = ?, attached_instance = ?, device_path = ?, mount_name = ?, error_message = ?
+WHERE id = ?`, string(status), instanceID, instanceName, devicePath, mountName, errMsg, id)
+	if err != nil {
+		return err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return fmt.Errorf("volume %s not found", id)
+	}
+	return nil
+}
+
+func (s *Store) DeleteVolume(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM volumes WHERE id = ?`, id)
+	return err
+}
+
+func scanVolume(r rowScanner) (types.Volume, error) {
+	var vol types.Volume
+	var status string
+	err := r.Scan(&vol.ID, &vol.Name, &vol.SizeBytes, &vol.DiskPath, &status,
+		&vol.AttachedInstanceID, &vol.AttachedInstance, &vol.DevicePath, &vol.MountName, &vol.ErrorMessage)
+	if err == sql.ErrNoRows {
+		return types.Volume{}, fmt.Errorf("volume not found")
+	}
+	if err != nil {
+		return types.Volume{}, err
+	}
+	vol.Status = types.VolumeStatus(status)
+	return vol, nil
 }
 
 func (s *Store) CountInstancesByImage(ctx context.Context, imageName string) (int, error) {

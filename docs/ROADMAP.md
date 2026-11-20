@@ -1,6 +1,6 @@
 # Tiny AWS roadmap
 
-Source of truth for phases. **Now** is Phase 1. Later phases are locked until their exit criteria open them.
+Source of truth for phases. **Now** is Phase 3 — Storage. Later phases are locked until their exit criteria open them.
 
 ## What Tiny AWS is
 
@@ -21,8 +21,8 @@ Hard engineering rule: no Docker-based runtime, no Kubernetes dependency, and no
 |---|---|---|
 | 0 | Foundation | done |
 | 1 | Tiny EC2 | done |
-| 2 | Images | CURRENT |
-| 3 | Storage | locked later |
+| 2 | Images | done |
+| 3 | Storage | CURRENT |
 | 4 | Networking | locked later |
 | 5 | IAM | locked later |
 | 6 | Metadata | locked later |
@@ -117,7 +117,7 @@ Locked contract: [`docs/M1-CONTRACT.md`](M1-CONTRACT.md)
 
 ---
 
-## PHASE 2 — Images (CURRENT FOCUS)
+## PHASE 2 — Images (done)
 
 Build:
 
@@ -131,15 +131,17 @@ Depends on: Phase 1 stable (done).
 
 ---
 
-## PHASE 3 — Tiny storage (EBS-like)
+## PHASE 3 — Tiny storage (EBS-like) (CURRENT FOCUS)
 
 Build:
 
-- Volumes create/delete
-- Attach/detach to instances
-- Filesystem and block storage operations in C++
+- Volumes create/delete (Go sparse `disk.img` + SQLite)
+- Attach/detach to instances (C++ loop + mount into instance mount ns)
+- Guest path `/mnt/<volume-name>`
 
-Depends on: Phase 1 + useful image story from Phase 2.
+Locked contract: [`docs/M3-CONTRACT.md`](M3-CONTRACT.md)
+
+Depends on: Phase 1 + Phase 2 images (done).
 
 ---
 

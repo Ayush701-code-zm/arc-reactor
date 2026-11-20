@@ -48,6 +48,12 @@ func (f *fakeRuntime) DeleteInstance(_ context.Context, id string) error {
 	f.deleted = append(f.deleted, id)
 	return nil
 }
+func (f *fakeRuntime) AttachVolume(context.Context, string, string, string, string, string) (string, string, error) {
+	return "/dev/loop0", "/mnt/vol", nil
+}
+func (f *fakeRuntime) DetachVolume(context.Context, string, string, string, string, string) error {
+	return nil
+}
 func (f *fakeRuntime) Close() error { return nil }
 
 func newService(t *testing.T, rt *fakeRuntime) *Service {

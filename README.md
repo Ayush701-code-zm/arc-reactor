@@ -8,7 +8,7 @@ Not a Docker runtime. Not Kubernetes. Not wrapping AWS APIs.
 
 | Now | Later | End |
 |---|---|---|
-| Phase 2 Images: import `.tar.gz`, unpack rootfs, boot via `chroot` (Phase 1 EC2 lifecycle done) | Storage, networking, IAM, metadata, eBPF, multi-node | Own create → isolate → limit → network → store → auth → schedule, demoed live with `tiny` |
+| Phase 3 Storage: volumes create/attach (Phase 1 EC2 + Phase 2 Images done) | Networking, IAM, metadata, eBPF, multi-node | Own create → isolate → limit → network → store → auth → schedule, demoed live with `tiny` |
 
 Full phases and exit criteria: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 
@@ -94,6 +94,12 @@ curl -sf http://127.0.0.1:8080/healthz && echo ok
 ./control-plane/bin/tiny instance stop my-server
 ./control-plane/bin/tiny instance start my-server
 ./control-plane/bin/tiny instance delete my-server
+
+# Phase 3 volumes (needs a RUNNING instance + image rootfs)
+./control-plane/bin/tiny volume create --name data --size 64MB
+./control-plane/bin/tiny volume attach --volume data --instance my-server
+./control-plane/bin/tiny volume detach --volume data
+./control-plane/bin/tiny volume delete data
 ```
 
 Flow: `tiny` → HTTP → `tinyd` → gRPC → `tinyruntimed` → Linux process.

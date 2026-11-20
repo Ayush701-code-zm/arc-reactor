@@ -13,5 +13,7 @@ type Client interface {
 	StartInstance(ctx context.Context, id string) (types.RuntimeView, error)
 	StopInstance(ctx context.Context, id string) (types.RuntimeView, error)
 	DeleteInstance(ctx context.Context, id string) error
+	AttachVolume(ctx context.Context, instanceID, volumeID, diskPath, rootfsPath, mountName string) (devicePath, mountPath string, err error)
+	DetachVolume(ctx context.Context, instanceID, volumeID, devicePath, rootfsPath, mountName string) error
 	Close() error
 }

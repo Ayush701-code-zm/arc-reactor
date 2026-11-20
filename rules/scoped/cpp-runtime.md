@@ -21,6 +21,7 @@ paths:
 # C++ runtime
 
 Locked M1 contract: [`docs/M1-CONTRACT.md`](../../docs/M1-CONTRACT.md).
+Locked M3 volume contract: [`docs/M3-CONTRACT.md`](../../docs/M3-CONTRACT.md).
 
 - Language is C++20. Build with CMake. GCC or Clang.
 - Public headers live in `include/tiny/`. Sources live in `src/`. Tests live in `tests/`.
@@ -30,6 +31,6 @@ Locked M1 contract: [`docs/M1-CONTRACT.md`](../../docs/M1-CONTRACT.md).
 - Stop sequence: `SIGTERM`, wait **5000 ms**, then `SIGKILL`. Status is `STOPPING` then `STOPPED`.
 - Startup failures: return response with `FAILED` and `error_message`. Transport failures: gRPC status.
 - Do not shell out to Docker, `systemd-run`, or `runc`.
-- No mount/uts/net/user namespaces, no virtual network, no block storage, and no eBPF in this milestone.
+- M2 already uses mount namespace + `chroot`. M3 adds loop + mount of volume images into that mount ns. Still no uts/net/user namespaces, no virtual network product, and no eBPF.
 - A stub must say it is a stub. Do not return success for a process you did not start.
 - GoogleTest is the framework once a test needs fixtures. Until then a single test binary is enough. The test target must pass under `ctest`.

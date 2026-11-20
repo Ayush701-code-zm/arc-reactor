@@ -44,6 +44,7 @@ class Supervisor {
   Instance Start(const std::string& id);
   Instance Stop(const std::string& id);
   bool Delete(const std::string& id, std::string* err);
+  bool RunningPid(const std::string& id, int32_t* pid, std::string* err) const;
 
  private:
   Instance StartLocked(Instance& inst);

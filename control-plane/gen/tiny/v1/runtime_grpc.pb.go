@@ -25,6 +25,8 @@ const (
 	RuntimeService_StartInstance_FullMethodName   = "/tiny.v1.RuntimeService/StartInstance"
 	RuntimeService_StopInstance_FullMethodName    = "/tiny.v1.RuntimeService/StopInstance"
 	RuntimeService_DeleteInstance_FullMethodName  = "/tiny.v1.RuntimeService/DeleteInstance"
+	RuntimeService_AttachVolume_FullMethodName    = "/tiny.v1.RuntimeService/AttachVolume"
+	RuntimeService_DetachVolume_FullMethodName    = "/tiny.v1.RuntimeService/DetachVolume"
 )
 
 // RuntimeServiceClient is the client API for RuntimeService service.
@@ -37,6 +39,8 @@ type RuntimeServiceClient interface {
 	StartInstance(ctx context.Context, in *StartInstanceRequest, opts ...grpc.CallOption) (*StartInstanceResponse, error)
 	StopInstance(ctx context.Context, in *StopInstanceRequest, opts ...grpc.CallOption) (*StopInstanceResponse, error)
 	DeleteInstance(ctx context.Context, in *DeleteInstanceRequest, opts ...grpc.CallOption) (*DeleteInstanceResponse, error)
+	AttachVolume(ctx context.Context, in *AttachVolumeRequest, opts ...grpc.CallOption) (*AttachVolumeResponse, error)
+	DetachVolume(ctx context.Context, in *DetachVolumeRequest, opts ...grpc.CallOption) (*DetachVolumeResponse, error)
 }
 
 type runtimeServiceClient struct {
@@ -107,6 +111,26 @@ func (c *runtimeServiceClient) DeleteInstance(ctx context.Context, in *DeleteIns
 	return out, nil
 }
 
+func (c *runtimeServiceClient) AttachVolume(ctx context.Context, in *AttachVolumeRequest, opts ...grpc.CallOption) (*AttachVolumeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AttachVolumeResponse)
+	err := c.cc.Invoke(ctx, RuntimeService_AttachVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *runtimeServiceClient) DetachVolume(ctx context.Context, in *DetachVolumeRequest, opts ...grpc.CallOption) (*DetachVolumeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DetachVolumeResponse)
+	err := c.cc.Invoke(ctx, RuntimeService_DetachVolume_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RuntimeServiceServer is the server API for RuntimeService service.
 // All implementations must embed UnimplementedRuntimeServiceServer
 // for forward compatibility.
@@ -117,6 +141,8 @@ type RuntimeServiceServer interface {
 	StartInstance(context.Context, *StartInstanceRequest) (*StartInstanceResponse, error)
 	StopInstance(context.Context, *StopInstanceRequest) (*StopInstanceResponse, error)
 	DeleteInstance(context.Context, *DeleteInstanceRequest) (*DeleteInstanceResponse, error)
+	AttachVolume(context.Context, *AttachVolumeRequest) (*AttachVolumeResponse, error)
+	DetachVolume(context.Context, *DetachVolumeRequest) (*DetachVolumeResponse, error)
 	mustEmbedUnimplementedRuntimeServiceServer()
 }
 
@@ -144,6 +170,12 @@ func (UnimplementedRuntimeServiceServer) StopInstance(context.Context, *StopInst
 }
 func (UnimplementedRuntimeServiceServer) DeleteInstance(context.Context, *DeleteInstanceRequest) (*DeleteInstanceResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteInstance not implemented")
+}
+func (UnimplementedRuntimeServiceServer) AttachVolume(context.Context, *AttachVolumeRequest) (*AttachVolumeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method AttachVolume not implemented")
+}
+func (UnimplementedRuntimeServiceServer) DetachVolume(context.Context, *DetachVolumeRequest) (*DetachVolumeResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DetachVolume not implemented")
 }
 func (UnimplementedRuntimeServiceServer) mustEmbedUnimplementedRuntimeServiceServer() {}
 func (UnimplementedRuntimeServiceServer) testEmbeddedByValue()                        {}
@@ -274,6 +306,42 @@ func _RuntimeService_DeleteInstance_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RuntimeService_AttachVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AttachVolumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RuntimeServiceServer).AttachVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RuntimeService_AttachVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RuntimeServiceServer).AttachVolume(ctx, req.(*AttachVolumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _RuntimeService_DetachVolume_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DetachVolumeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RuntimeServiceServer).DetachVolume(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RuntimeService_DetachVolume_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RuntimeServiceServer).DetachVolume(ctx, req.(*DetachVolumeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RuntimeService_ServiceDesc is the grpc.ServiceDesc for RuntimeService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -304,6 +372,14 @@ var RuntimeService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteInstance",
 			Handler:    _RuntimeService_DeleteInstance_Handler,
+		},
+		{
+			MethodName: "AttachVolume",
+			Handler:    _RuntimeService_AttachVolume_Handler,
+		},
+		{
+			MethodName: "DetachVolume",
+			Handler:    _RuntimeService_DetachVolume_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

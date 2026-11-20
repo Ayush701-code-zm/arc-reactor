@@ -133,6 +133,21 @@ bool Supervisor::Delete(const std::string& id, std::string* err) {
   return true;
 }
 
+bool Supervisor::RunningPid(const std::string& id, int32_t* pid, std::string* err) const {
+  std::lock_guard lock(mu_);
+  auto it = instances_.find(id);
+  if (it == instances_.end()) {
+    if (err) *err = "instance not found";
+    return false;
+  }
+  if (it->second.status != Status::kRunning || it->second.pid <= 0) {
+    if (err) *err = "instance is not running";
+    return false;
+  }
+  if (pid) *pid = it->second.pid;
+  return true;
+}
+
 Instance Supervisor::StartLocked(Instance& inst) {
 #if !defined(__linux__)
   inst.status = Status::kFailed;

@@ -45,9 +45,9 @@ Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARC
 
 # Phase gate
 
-Current phase: **Phase 2 — Images** (Phase 1 Tiny EC2 is done).
+Current phase: **Phase 3 — Storage** (Phase 1 Tiny EC2 and Phase 2 Images are done).
 
-Do not implement Phase 3+ until Phase 2 exit criteria are met, unless the user explicitly opens the next phase.
+Do not implement Phase 4+ until Phase 3 exit criteria are met, unless the user explicitly opens the next phase.
 
 If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 2 or explicitly open that phase.
 

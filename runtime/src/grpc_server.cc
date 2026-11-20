@@ -1,5 +1,6 @@
 #include "tiny/grpc_server.h"
 
+#include "tiny/process/volume.h"
 #include "tiny/v1/runtime.grpc.pb.h"
 #include "tiny/v1/runtime.pb.h"
 
@@ -107,6 +108,42 @@ class RuntimeServiceImpl final : public tiny::v1::RuntimeService::Service {
     resp->set_id(req->id());
     if (!supervisor_->Delete(req->id(), &err)) {
       resp->set_error_message(err.empty() ? "delete not confirmed" : err);
+      return grpc::Status::OK;
+    }
+    resp->set_error_message("");
+    return grpc::Status::OK;
+  }
+
+  grpc::Status AttachVolume(grpc::ServerContext*, const tiny::v1::AttachVolumeRequest* req,
+                            tiny::v1::AttachVolumeResponse* resp) override {
+    resp->set_volume_id(req->volume_id());
+    int32_t pid = 0;
+    std::string err;
+    if (!supervisor_->RunningPid(req->instance_id(), &pid, &err)) {
+      resp->set_error_message(err.empty() ? "instance not running" : err);
+      return grpc::Status::OK;
+    }
+    const auto attached = process::AttachVolumeToInstance(pid, req->disk_path(), req->rootfs_path(),
+                                                          req->mount_name());
+    if (!attached.ok) {
+      resp->set_error_message(attached.error_message);
+      return grpc::Status::OK;
+    }
+    resp->set_device_path(attached.device_path);
+    resp->set_mount_path(attached.mount_path);
+    resp->set_error_message("");
+    return grpc::Status::OK;
+  }
+
+  grpc::Status DetachVolume(grpc::ServerContext*, const tiny::v1::DetachVolumeRequest* req,
+                            tiny::v1::DetachVolumeResponse* resp) override {
+    resp->set_volume_id(req->volume_id());
+    int32_t pid = 0;
+    std::string err;
+    (void)supervisor_->RunningPid(req->instance_id(), &pid, &err);
+    if (!process::DetachVolumeFromInstance(pid, req->device_path(), req->rootfs_path(), req->mount_name(),
+                                           &err)) {
+      resp->set_error_message(err.empty() ? "detach failed" : err);
       return grpc::Status::OK;
     }
     resp->set_error_message("");

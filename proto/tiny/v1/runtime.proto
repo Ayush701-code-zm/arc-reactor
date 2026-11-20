@@ -11,6 +11,8 @@ service RuntimeService {
   rpc StartInstance(StartInstanceRequest) returns (StartInstanceResponse);
   rpc StopInstance(StopInstanceRequest) returns (StopInstanceResponse);
   rpc DeleteInstance(DeleteInstanceRequest) returns (DeleteInstanceResponse);
+  rpc AttachVolume(AttachVolumeRequest) returns (AttachVolumeResponse);
+  rpc DetachVolume(DetachVolumeRequest) returns (DetachVolumeResponse);
 }
 
 enum InstanceStatus {
@@ -90,5 +92,33 @@ message DeleteInstanceRequest {
 
 message DeleteInstanceResponse {
   string id = 1;
+  string error_message = 2;
+}
+
+message AttachVolumeRequest {
+  string instance_id = 1;
+  string volume_id = 2;
+  string disk_path = 3;
+  string rootfs_path = 4;
+  string mount_name = 5;
+}
+
+message AttachVolumeResponse {
+  string volume_id = 1;
+  string device_path = 2;
+  string mount_path = 3;
+  string error_message = 4;
+}
+
+message DetachVolumeRequest {
+  string instance_id = 1;
+  string volume_id = 2;
+  string device_path = 3;
+  string rootfs_path = 4;
+  string mount_name = 5;
+}
+
+message DetachVolumeResponse {
+  string volume_id = 1;
   string error_message = 2;
 }

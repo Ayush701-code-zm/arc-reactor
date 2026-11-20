@@ -128,6 +128,40 @@ func (c *GRPC) DeleteInstance(ctx context.Context, id string) error {
 	return nil
 }
 
+func (c *GRPC) AttachVolume(ctx context.Context, instanceID, volumeID, diskPath, rootfsPath, mountName string) (string, string, error) {
+	resp, err := c.client.AttachVolume(ctx, &tinyv1.AttachVolumeRequest{
+		InstanceId: instanceID,
+		VolumeId:   volumeID,
+		DiskPath:   diskPath,
+		RootfsPath: rootfsPath,
+		MountName:  mountName,
+	})
+	if err != nil {
+		return "", "", err
+	}
+	if resp.GetErrorMessage() != "" {
+		return "", "", fmt.Errorf("%s", resp.GetErrorMessage())
+	}
+	return resp.GetDevicePath(), resp.GetMountPath(), nil
+}
+
+func (c *GRPC) DetachVolume(ctx context.Context, instanceID, volumeID, devicePath, rootfsPath, mountName string) error {
+	resp, err := c.client.DetachVolume(ctx, &tinyv1.DetachVolumeRequest{
+		InstanceId: instanceID,
+		VolumeId:   volumeID,
+		DevicePath: devicePath,
+		RootfsPath: rootfsPath,
+		MountName:  mountName,
+	})
+	if err != nil {
+		return err
+	}
+	if resp.GetErrorMessage() != "" {
+		return fmt.Errorf("%s", resp.GetErrorMessage())
+	}
+	return nil
+}
+
 func viewFromProto(it *tinyv1.Instance) types.RuntimeView {
 	if it == nil {
 		return types.RuntimeView{}
