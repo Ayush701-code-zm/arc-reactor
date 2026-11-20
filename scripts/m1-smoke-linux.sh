@@ -45,7 +45,7 @@ ALPINE_URL="https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/${ALPINE_ARCH}/
 
 printf '== fetch alpine minirootfs ==\n'
 if [[ ! -f "$ALPINE_TGZ" ]]; then
-  curl -fsSL -o "$ALPINE_TGZ" "$ALPINE_URL"
+  curl -fsSL --proto '=https' --proto-redir '=https' -o "$ALPINE_TGZ" "$ALPINE_URL"
 fi
 
 printf '== start tinyruntimed (TINY_REQUIRE_CGROUP=%s) ==\n' "$TINY_REQUIRE_CGROUP"

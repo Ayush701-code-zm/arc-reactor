@@ -40,13 +40,21 @@ func ExtractTarGz(src, dest string) error {
 		if err != nil {
 			return err
 		}
+		// Sink-local Zip Slip barrier (shape Sonar/CodeQL recognize).
+		if err := assertInside(dest, target); err != nil {
+			return err
+		}
 		switch hdr.Typeflag {
 		case tar.TypeDir:
 			if err := os.MkdirAll(target, 0o755); err != nil {
 				return err
 			}
 		case tar.TypeReg, tar.TypeRegA:
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			parent := filepath.Dir(target)
+			if err := assertInside(dest, parent); err != nil {
+				return err
+			}
+			if err := os.MkdirAll(parent, 0o755); err != nil {
 				return err
 			}
 			out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, os.FileMode(hdr.Mode)&0o777)
@@ -65,7 +73,15 @@ func ExtractTarGz(src, dest string) error {
 			if err != nil {
 				return err
 			}
-			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			parent := filepath.Dir(target)
+			if err := assertInside(dest, parent); err != nil {
+				return err
+			}
+			resolved := filepath.Clean(filepath.Join(parent, linkTarget))
+			if err := assertInside(dest, resolved); err != nil {
+				return err
+			}
+			if err := os.MkdirAll(parent, 0o755); err != nil {
 				return err
 			}
 			_ = os.Remove(target)
@@ -82,24 +98,30 @@ func safeJoin(root, name string) (string, error) {
 	if name == "" {
 		return "", fmt.Errorf("empty archive path")
 	}
-	if filepath.IsAbs(name) {
+	if filepath.IsAbs(name) || strings.HasPrefix(name, `\`) || strings.Contains(name, `:\`) {
 		return "", fmt.Errorf("absolute path in archive rejected: %s", name)
 	}
-	clean := filepath.Clean(name)
-	if clean == ".." || strings.HasPrefix(clean, ".."+string(os.PathSeparator)) {
-		return "", fmt.Errorf("path escapes rootfs: %s", name)
-	}
-	target := filepath.Join(root, clean)
+	root = filepath.Clean(root)
+	target := filepath.Clean(filepath.Join(root, name))
 	rel, err := filepath.Rel(root, target)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
 		return "", fmt.Errorf("path escapes rootfs: %s", name)
 	}
+	if err := assertInside(root, target); err != nil {
+		return "", err
+	}
 	return target, nil
 }
 
-// rewriteSymlink maps archive symlink targets into the rootfs.
-// Absolute targets like /bin/busybox mean "inside the guest root", not the host.
-// We store a relative link so the host never gets an absolute escape symlink.
+func assertInside(root, path string) error {
+	root = filepath.Clean(root)
+	path = filepath.Clean(path)
+	if path != root && !strings.HasPrefix(path, root+string(os.PathSeparator)) {
+		return fmt.Errorf("path escapes rootfs: %s", path)
+	}
+	return nil
+}
+
 func rewriteSymlink(root, linkPath, linkTarget string) (string, error) {
 	var resolved string
 	if filepath.IsAbs(linkTarget) {
@@ -111,8 +133,7 @@ func rewriteSymlink(root, linkPath, linkTarget string) (string, error) {
 		}
 	} else {
 		candidate := filepath.Clean(filepath.Join(filepath.Dir(linkPath), linkTarget))
-		rel, err := filepath.Rel(root, candidate)
-		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+		if err := assertInside(root, candidate); err != nil {
 			return "", fmt.Errorf("symlink escapes rootfs: %s", linkTarget)
 		}
 		resolved = candidate
@@ -120,6 +141,9 @@ func rewriteSymlink(root, linkPath, linkTarget string) (string, error) {
 	out, err := filepath.Rel(filepath.Dir(linkPath), resolved)
 	if err != nil {
 		return "", err
+	}
+	if filepath.IsAbs(out) {
+		return "", fmt.Errorf("refusing absolute symlink after rewrite: %s", out)
 	}
 	return out, nil
 }
