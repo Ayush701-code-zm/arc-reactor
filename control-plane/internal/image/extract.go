@@ -29,7 +29,6 @@ func ExtractTarGz(src, dest string) error {
 	defer gz.Close()
 
 	tr := tar.NewReader(gz)
-	var pending []pendingLink
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
@@ -74,65 +73,28 @@ func ExtractTarGz(src, dest string) error {
 				return err
 			}
 		case tar.TypeSymlink:
-			linkTarget, err := rewriteSymlink(dest, target, hdr.Linkname)
+			linkTarget, err := rewriteSymlink(dest, destPrefix, target, hdr.Linkname)
 			if err != nil {
 				return err
 			}
-			pending = append(pending, pendingLink{
-				rel:        rel,
-				linkTarget: linkTarget,
-				mode:       os.FileMode(hdr.Mode) & 0o777,
-			})
+			parent := filepath.Dir(target)
+			if !insideRoot(dest, destPrefix, parent) {
+				return fmt.Errorf("path escapes rootfs: %s", hdr.Name)
+			}
+			if err := os.MkdirAll(parent, 0o755); err != nil {
+				return err
+			}
+			_ = os.Remove(target)
+			if !insideRoot(dest, destPrefix, target) {
+				return fmt.Errorf("path escapes rootfs: %s", hdr.Name)
+			}
+			if err := os.Symlink(linkTarget, target); err != nil {
+				return err
+			}
 		default:
 		}
 	}
-	for _, p := range pending {
-		if err := materializeLink(dest, destPrefix, p); err != nil {
-			return err
-		}
-	}
 	return nil
-}
-
-type pendingLink struct {
-	rel        string
-	linkTarget string
-	mode       os.FileMode
-}
-
-func materializeLink(dest, destPrefix string, p pendingLink) error {
-	target := filepath.Join(dest, p.rel)
-	if !insideRoot(dest, destPrefix, target) {
-		return fmt.Errorf("path escapes rootfs: %s", p.rel)
-	}
-	parent := filepath.Dir(target)
-	if !insideRoot(dest, destPrefix, parent) {
-		return fmt.Errorf("path escapes rootfs: %s", p.rel)
-	}
-	resolved := filepath.Clean(filepath.Join(parent, p.linkTarget))
-	if !insideRoot(dest, destPrefix, resolved) {
-		return fmt.Errorf("symlink escapes rootfs: %s", p.linkTarget)
-	}
-	st, err := os.Stat(resolved)
-	if err != nil {
-		return fmt.Errorf("symlink target missing under rootfs (%s -> %s): %w", p.rel, p.linkTarget, err)
-	}
-	if err := os.MkdirAll(parent, 0o755); err != nil {
-		return err
-	}
-	_ = os.Remove(target)
-	if st.IsDir() {
-		return os.MkdirAll(target, 0o755)
-	}
-	data, err := os.ReadFile(resolved)
-	if err != nil {
-		return err
-	}
-	mode := p.mode
-	if mode == 0 {
-		mode = 0o755
-	}
-	return os.WriteFile(target, data, mode)
 }
 
 func sanitizeArchiveRel(name string) (string, error) {
@@ -156,9 +118,7 @@ func sanitizeArchiveRel(name string) (string, error) {
 	return clean, nil
 }
 
-func rewriteSymlink(root, linkPath, linkTarget string) (string, error) {
-	root = filepath.Clean(root)
-	rootPrefix := root + string(os.PathSeparator)
+func rewriteSymlink(root, rootPrefix, linkPath, linkTarget string) (string, error) {
 	var resolved string
 	if filepath.IsAbs(linkTarget) {
 		rel := strings.TrimPrefix(filepath.Clean(linkTarget), string(os.PathSeparator))
@@ -171,15 +131,11 @@ func rewriteSymlink(root, linkPath, linkTarget string) (string, error) {
 		} else {
 			resolved = filepath.Join(root, clean)
 		}
-		if !insideRoot(root, rootPrefix, resolved) {
-			return "", fmt.Errorf("symlink target escapes rootfs: %s", linkTarget)
-		}
 	} else {
-		candidate := filepath.Clean(filepath.Join(filepath.Dir(linkPath), linkTarget))
-		if !insideRoot(root, rootPrefix, candidate) {
-			return "", fmt.Errorf("symlink escapes rootfs: %s", linkTarget)
-		}
-		resolved = candidate
+		resolved = filepath.Clean(filepath.Join(filepath.Dir(linkPath), linkTarget))
+	}
+	if !insideRoot(root, rootPrefix, resolved) {
+		return "", fmt.Errorf("symlink escapes rootfs: %s", linkTarget)
 	}
 	out, err := filepath.Rel(filepath.Dir(linkPath), resolved)
 	if err != nil {
@@ -187,6 +143,10 @@ func rewriteSymlink(root, linkPath, linkTarget string) (string, error) {
 	}
 	if filepath.IsAbs(out) {
 		return "", fmt.Errorf("refusing absolute symlink after rewrite: %s", out)
+	}
+	check := filepath.Clean(filepath.Join(filepath.Dir(linkPath), out))
+	if !insideRoot(root, rootPrefix, check) {
+		return "", fmt.Errorf("symlink escapes rootfs: %s", linkTarget)
 	}
 	return out, nil
 }
