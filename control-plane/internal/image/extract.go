@@ -61,14 +61,15 @@ func ExtractTarGz(src, dest string) error {
 				return err
 			}
 		case tar.TypeSymlink:
-			if err := validateSymlink(dest, target, hdr.Linkname); err != nil {
+			linkTarget, err := rewriteSymlink(dest, target, hdr.Linkname)
+			if err != nil {
 				return err
 			}
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return err
 			}
 			_ = os.Remove(target)
-			if err := os.Symlink(hdr.Linkname, target); err != nil {
+			if err := os.Symlink(linkTarget, target); err != nil {
 				return err
 			}
 		default:
@@ -96,14 +97,29 @@ func safeJoin(root, name string) (string, error) {
 	return target, nil
 }
 
-func validateSymlink(root, linkPath, linkTarget string) error {
+// rewriteSymlink maps archive symlink targets into the rootfs.
+// Absolute targets like /bin/busybox mean "inside the guest root", not the host.
+// We store a relative link so the host never gets an absolute escape symlink.
+func rewriteSymlink(root, linkPath, linkTarget string) (string, error) {
+	var resolved string
 	if filepath.IsAbs(linkTarget) {
-		return fmt.Errorf("absolute symlink rejected: %s", linkTarget)
+		rel := strings.TrimPrefix(filepath.Clean(linkTarget), string(os.PathSeparator))
+		var err error
+		resolved, err = safeJoin(root, rel)
+		if err != nil {
+			return "", fmt.Errorf("symlink target escapes rootfs: %s", linkTarget)
+		}
+	} else {
+		candidate := filepath.Clean(filepath.Join(filepath.Dir(linkPath), linkTarget))
+		rel, err := filepath.Rel(root, candidate)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+			return "", fmt.Errorf("symlink escapes rootfs: %s", linkTarget)
+		}
+		resolved = candidate
 	}
-	resolved := filepath.Clean(filepath.Join(filepath.Dir(linkPath), linkTarget))
-	rel, err := filepath.Rel(root, resolved)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		return fmt.Errorf("symlink escapes rootfs: %s", linkTarget)
+	out, err := filepath.Rel(filepath.Dir(linkPath), resolved)
+	if err != nil {
+		return "", err
 	}
-	return nil
+	return out, nil
 }

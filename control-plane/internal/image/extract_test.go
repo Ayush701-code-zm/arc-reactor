@@ -49,7 +49,7 @@ func TestExtractTarGz(t *testing.T) {
 	}
 }
 
-func TestExtractRejectsAbsolutePath(t *testing.T) {
+func TestExtractRejectsAbsoluteFilePath(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "bad.tar.gz")
 	writeTarGz(t, src, func(tw *tar.Writer) {
@@ -67,7 +67,7 @@ func TestExtractRejectsAbsolutePath(t *testing.T) {
 	}
 }
 
-func TestExtractRejectsEscapingSymlink(t *testing.T) {
+func TestExtractRejectsEscapingRelativeSymlink(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "bad.tar.gz")
 	writeTarGz(t, src, func(tw *tar.Writer) {
@@ -78,5 +78,40 @@ func TestExtractRejectsEscapingSymlink(t *testing.T) {
 	})
 	if err := ExtractTarGz(src, filepath.Join(dir, "rootfs")); err == nil {
 		t.Fatal("expected symlink escape rejection")
+	}
+}
+
+func TestExtractRewritesAbsoluteSymlinkIntoRootfs(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "img.tar.gz")
+	writeTarGz(t, src, func(tw *tar.Writer) {
+		body := []byte("busybox")
+		hdr := &tar.Header{Name: "bin/busybox", Mode: 0o755, Size: int64(len(body))}
+		if err := tw.WriteHeader(hdr); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := tw.Write(body); err != nil {
+			t.Fatal(err)
+		}
+		link := &tar.Header{Typeflag: tar.TypeSymlink, Name: "bin/sleep", Linkname: "/bin/busybox"}
+		if err := tw.WriteHeader(link); err != nil {
+			t.Fatal(err)
+		}
+	})
+
+	dest := filepath.Join(dir, "rootfs")
+	if err := ExtractTarGz(src, dest); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.Readlink(filepath.Join(dest, "bin/sleep"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if filepath.IsAbs(got) {
+		t.Fatalf("expected relative symlink, got %q", got)
+	}
+	resolved := filepath.Clean(filepath.Join(filepath.Dir(filepath.Join(dest, "bin/sleep")), got))
+	if resolved != filepath.Join(dest, "bin/busybox") {
+		t.Fatalf("resolved=%s", resolved)
 	}
 }
