@@ -46,7 +46,7 @@ func ExtractTarGz(src, dest string) error {
 			continue
 		}
 		target := filepath.Join(dest, rel)
-		if !strings.HasPrefix(target, destPrefix) {
+		if !insideRoot(dest, destPrefix, target) {
 			return fmt.Errorf("path escapes rootfs: %s", hdr.Name)
 		}
 		switch hdr.Typeflag {
@@ -56,7 +56,7 @@ func ExtractTarGz(src, dest string) error {
 			}
 		case tar.TypeReg, tar.TypeRegA:
 			parent := filepath.Dir(target)
-			if !strings.HasPrefix(parent, destPrefix) && parent != dest {
+			if !insideRoot(dest, destPrefix, parent) {
 				return fmt.Errorf("path escapes rootfs: %s", hdr.Name)
 			}
 			if err := os.MkdirAll(parent, 0o755); err != nil {
@@ -102,18 +102,18 @@ type pendingLink struct {
 
 func materializeLink(dest, destPrefix string, p pendingLink) error {
 	target := filepath.Join(dest, p.rel)
-	if !strings.HasPrefix(target, destPrefix) {
+	if !insideRoot(dest, destPrefix, target) {
 		return fmt.Errorf("path escapes rootfs: %s", p.rel)
 	}
 	parent := filepath.Dir(target)
-	if !strings.HasPrefix(parent, destPrefix) && parent != dest {
+	if !insideRoot(dest, destPrefix, parent) {
 		return fmt.Errorf("path escapes rootfs: %s", p.rel)
 	}
 	resolved := filepath.Clean(filepath.Join(parent, p.linkTarget))
-	if !strings.HasPrefix(resolved, destPrefix) {
+	if !insideRoot(dest, destPrefix, resolved) {
 		return fmt.Errorf("symlink escapes rootfs: %s", p.linkTarget)
 	}
-	data, err := os.ReadFile(resolved)
+	st, err := os.Stat(resolved)
 	if err != nil {
 		return fmt.Errorf("symlink target missing under rootfs (%s -> %s): %w", p.rel, p.linkTarget, err)
 	}
@@ -121,6 +121,13 @@ func materializeLink(dest, destPrefix string, p pendingLink) error {
 		return err
 	}
 	_ = os.Remove(target)
+	if st.IsDir() {
+		return os.MkdirAll(target, 0o755)
+	}
+	data, err := os.ReadFile(resolved)
+	if err != nil {
+		return err
+	}
 	mode := p.mode
 	if mode == 0 {
 		mode = 0o755
@@ -159,13 +166,17 @@ func rewriteSymlink(root, linkPath, linkTarget string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("symlink target escapes rootfs: %s", linkTarget)
 		}
-		resolved = filepath.Join(root, clean)
-		if !strings.HasPrefix(resolved, rootPrefix) {
+		if clean == "" {
+			resolved = root
+		} else {
+			resolved = filepath.Join(root, clean)
+		}
+		if !insideRoot(root, rootPrefix, resolved) {
 			return "", fmt.Errorf("symlink target escapes rootfs: %s", linkTarget)
 		}
 	} else {
 		candidate := filepath.Clean(filepath.Join(filepath.Dir(linkPath), linkTarget))
-		if !strings.HasPrefix(candidate, rootPrefix) {
+		if !insideRoot(root, rootPrefix, candidate) {
 			return "", fmt.Errorf("symlink escapes rootfs: %s", linkTarget)
 		}
 		resolved = candidate
@@ -174,8 +185,12 @@ func rewriteSymlink(root, linkPath, linkTarget string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if filepath.IsAbs(out) || out == ".." || strings.HasPrefix(out, ".."+string(os.PathSeparator)) {
-		return "", fmt.Errorf("refusing escaping symlink after rewrite: %s", out)
+	if filepath.IsAbs(out) {
+		return "", fmt.Errorf("refusing absolute symlink after rewrite: %s", out)
 	}
 	return out, nil
+}
+
+func insideRoot(root, rootPrefix, path string) bool {
+	return path == root || strings.HasPrefix(path, rootPrefix)
 }
