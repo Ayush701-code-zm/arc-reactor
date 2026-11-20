@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -21,24 +22,32 @@ func main() {
 		usage()
 		os.Exit(2)
 	}
-	if os.Args[1] != "instance" {
-		usage()
-		os.Exit(2)
-	}
-	if len(os.Args) < 3 {
-		usage()
-		os.Exit(2)
-	}
 
 	base := strings.TrimRight(env("TINY_API_ADDR", "127.0.0.1:8080"), "/")
 	if !strings.Contains(base, "://") {
 		base = "http://" + base
 	}
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 120 * time.Second}
 
-	switch os.Args[2] {
+	switch os.Args[1] {
+	case "instance":
+		runInstance(client, base, os.Args[2:])
+	case "image":
+		runImage(client, base, os.Args[2:])
+	default:
+		usage()
+		os.Exit(2)
+	}
+}
+
+func runInstance(client *http.Client, base string, args []string) {
+	if len(args) < 1 {
+		usage()
+		os.Exit(2)
+	}
+	switch args[0] {
 	case "create":
-		spec, err := parseCreate(os.Args[3:])
+		spec, err := parseCreate(args[1:])
 		if err != nil {
 			fail(err)
 		}
@@ -62,7 +71,7 @@ func main() {
 			fail(fmt.Errorf("list failed: HTTP %d", code))
 		}
 	case "inspect":
-		name, err := oneName(os.Args[3:])
+		name, err := oneName(args[1:])
 		if err != nil {
 			fail(err)
 		}
@@ -76,7 +85,7 @@ func main() {
 			fail(fmt.Errorf("inspect failed: HTTP %d", code))
 		}
 	case "stop":
-		name, err := oneName(os.Args[3:])
+		name, err := oneName(args[1:])
 		if err != nil {
 			fail(err)
 		}
@@ -90,7 +99,7 @@ func main() {
 			fail(fmt.Errorf("stop failed: HTTP %d", code))
 		}
 	case "start":
-		name, err := oneName(os.Args[3:])
+		name, err := oneName(args[1:])
 		if err != nil {
 			fail(err)
 		}
@@ -104,12 +113,81 @@ func main() {
 			fail(fmt.Errorf("start failed: HTTP %d", code))
 		}
 	case "delete":
-		name, err := oneName(os.Args[3:])
+		name, err := oneName(args[1:])
 		if err != nil {
 			fail(err)
 		}
 		var out map[string]any
 		code, err := doJSON(client, http.MethodDelete, base+"/v1/instances/"+url.PathEscape(name), nil, &out)
+		if err != nil {
+			fail(err)
+		}
+		_ = printJSON(out)
+		if code >= 300 {
+			fail(fmt.Errorf("delete failed: HTTP %d", code))
+		}
+	default:
+		usage()
+		os.Exit(2)
+	}
+}
+
+func runImage(client *http.Client, base string, args []string) {
+	if len(args) < 1 {
+		usage()
+		os.Exit(2)
+	}
+	switch args[0] {
+	case "import":
+		name, file, err := parseImageImport(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		abs, err := filepath.Abs(file)
+		if err != nil {
+			fail(err)
+		}
+		body := map[string]string{"Name": name, "File": abs}
+		var img types.Image
+		code, err := doJSON(client, http.MethodPost, base+"/v1/images", body, &img)
+		if err != nil {
+			fail(err)
+		}
+		_ = printJSON(img)
+		if code >= 300 {
+			fail(fmt.Errorf("import failed: HTTP %d", code))
+		}
+	case "list":
+		var list []types.Image
+		code, err := doJSON(client, http.MethodGet, base+"/v1/images", nil, &list)
+		if err != nil {
+			fail(err)
+		}
+		_ = printJSON(list)
+		if code >= 300 {
+			fail(fmt.Errorf("list failed: HTTP %d", code))
+		}
+	case "inspect":
+		name, err := oneName(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		var img types.Image
+		code, err := doJSON(client, http.MethodGet, base+"/v1/images/"+url.PathEscape(name), nil, &img)
+		if err != nil {
+			fail(err)
+		}
+		_ = printJSON(img)
+		if code >= 300 {
+			fail(fmt.Errorf("inspect failed: HTTP %d", code))
+		}
+	case "delete":
+		name, err := oneName(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		var out map[string]any
+		code, err := doJSON(client, http.MethodDelete, base+"/v1/images/"+url.PathEscape(name), nil, &out)
 		if err != nil {
 			fail(err)
 		}
@@ -204,6 +282,32 @@ func parseCreate(args []string) (types.Spec, error) {
 	return spec, nil
 }
 
+func parseImageImport(args []string) (string, string, error) {
+	var name, file string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--name":
+			i++
+			if i >= len(args) {
+				return "", "", fmt.Errorf("--name needs a value")
+			}
+			name = args[i]
+		case "--file":
+			i++
+			if i >= len(args) {
+				return "", "", fmt.Errorf("--file needs a value")
+			}
+			file = args[i]
+		default:
+			return "", "", fmt.Errorf("unknown flag %s", args[i])
+		}
+	}
+	if name == "" || file == "" {
+		return "", "", fmt.Errorf("--name and --file are required")
+	}
+	return name, file, nil
+}
+
 func oneName(args []string) (string, error) {
 	if len(args) != 1 {
 		return "", fmt.Errorf("expected <name>")
@@ -231,11 +335,11 @@ func fail(err error) {
 
 func usage() {
 	fmt.Fprintf(os.Stderr, `tiny instance create --name NAME --image IMAGE --cpu N --memory SIZE
-tiny instance list
-tiny instance inspect NAME
-tiny instance stop NAME
-tiny instance start NAME
-tiny instance delete NAME
+tiny instance list|inspect|stop|start|delete ...
+tiny image import --name NAME --file PATH.tar.gz
+tiny image list
+tiny image inspect NAME
+tiny image delete NAME
 
 Env: TINY_API_ADDR (default 127.0.0.1:8080). CLI talks only to tinyd over HTTP.
 `)

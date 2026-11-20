@@ -13,6 +13,7 @@ paths:
 `proto/tiny/v1/runtime.proto` is the only wire contract. Package `tiny.v1`. Service `RuntimeService`.
 
 Locked M1 decisions: [`docs/M1-CONTRACT.md`](../../docs/M1-CONTRACT.md).
+Locked M2 image decisions: [`docs/M2-CONTRACT.md`](../../docs/M2-CONTRACT.md).
 
 | RPC | Use |
 |---|---|
@@ -23,14 +24,15 @@ Locked M1 decisions: [`docs/M1-CONTRACT.md`](../../docs/M1-CONTRACT.md).
 | `StopInstance` | SIGTERM, wait 5000 ms, then SIGKILL |
 | `DeleteInstance` | Stop if needed, then remove runtime state |
 
-# CreateInstance fields (M1)
+# CreateInstance fields (M1 + M2)
 
 | Direction | Required fields |
 |---|---|
-| Request | `id`, `name`, `image`, `cpu`, `memory_bytes` |
+| Request | `id`, `name`, `image`, `cpu`, `memory_bytes`, `rootfs_path` (M2) |
 | Response | `id`, `status`, `pid`, `error_message` |
 
-- No `command` / `args` in M1. Image runs a fixed stub command.
+- No `command` / `args` yet. Guest runs `/bin/sleep infinity` inside `rootfs_path` after mount ns + `chroot`.
+- Go resolves image name → `rootfs_path` before the RPC. C++ does not unpack images.
 - `memory_bytes` is a byte count. `cpu` is a whole CPU count (>= 1).
 - Instance startup failures: set `status = FAILED` and `error_message`.
 - Transport / RPC failures: gRPC status codes, not `error_message` alone.

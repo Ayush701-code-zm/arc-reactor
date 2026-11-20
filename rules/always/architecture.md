@@ -45,11 +45,11 @@ Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARC
 
 # Phase gate
 
-Current phase: **Phase 1 — Milestone 1 Tiny EC2**.
+Current phase: **Phase 2 — Images** (Phase 1 Tiny EC2 is done).
 
-Do not implement Phase 2+ until Phase 1 exit criteria are met, unless the user explicitly opens the next phase.
+Do not implement Phase 3+ until Phase 2 exit criteria are met, unless the user explicitly opens the next phase.
 
-If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Milestone 1 or explicitly open that phase.
+If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 2 or explicitly open that phase.
 
 # Build tools
 

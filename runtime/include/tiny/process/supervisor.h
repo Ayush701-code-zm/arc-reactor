@@ -20,6 +20,7 @@ struct Spec {
   std::string id;
   std::string name;
   std::string image;
+  std::string rootfs_path;
   uint32_t cpu = 0;
   uint64_t memory_bytes = 0;
 };

@@ -8,7 +8,7 @@ Not a Docker runtime. Not Kubernetes. Not wrapping AWS APIs.
 
 | Now | Later | End |
 |---|---|---|
-| Phase 1 Tiny EC2: create / list / inspect / stop / start / delete on one Ubuntu machine | Images, storage, networking, IAM, metadata, eBPF, multi-node | Own create → isolate → limit → network → store → auth → schedule, demoed live with `tiny` |
+| Phase 2 Images: import `.tar.gz`, unpack rootfs, boot via `chroot` (Phase 1 EC2 lifecycle done) | Storage, networking, IAM, metadata, eBPF, multi-node | Own create → isolate → limit → network → store → auth → schedule, demoed live with `tiny` |
 
 Full phases and exit criteria: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 

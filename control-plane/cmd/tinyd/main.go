@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ayushanand/tiny-aws/control-plane/internal/image"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/instance"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/runtimeclient"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/store"
@@ -25,6 +26,7 @@ func main() {
 		dbPath = filepath.Join(home, ".tiny-aws", "tiny.db")
 	}
 	rtAddr := env("TINY_RUNTIME_ADDR", "127.0.0.1:50051")
+	imageRoot := image.DefaultRoot()
 
 	st, err := store.Open(dbPath)
 	if err != nil {
@@ -38,7 +40,8 @@ func main() {
 	}
 	defer rt.Close()
 
-	svc := &instance.Service{Store: st, Runtime: rt}
+	imgSvc := &image.Service{Store: st, ImageRoot: imageRoot}
+	svc := &instance.Service{Store: st, Runtime: rt, Images: imgSvc}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -59,14 +62,17 @@ func main() {
 		}
 		inst, err := svc.Create(r.Context(), spec)
 		if err != nil {
+			if inst.ID == "" {
+				writeErr(w, statusFor(err), err)
+				return
+			}
 			writeJSON(w, http.StatusInternalServerError, inst)
 			return
 		}
 		writeJSON(w, http.StatusOK, inst)
 	})
 	mux.HandleFunc("GET /v1/instances/{name}", func(w http.ResponseWriter, r *http.Request) {
-		name := r.PathValue("name")
-		inst, err := svc.Inspect(r.Context(), name)
+		inst, err := svc.Inspect(r.Context(), r.PathValue("name"))
 		if err != nil {
 			writeErr(w, statusFor(err), err)
 			return
@@ -74,8 +80,7 @@ func main() {
 		writeJSON(w, http.StatusOK, inst)
 	})
 	mux.HandleFunc("POST /v1/instances/{name}/stop", func(w http.ResponseWriter, r *http.Request) {
-		name := r.PathValue("name")
-		inst, err := svc.Stop(r.Context(), name)
+		inst, err := svc.Stop(r.Context(), r.PathValue("name"))
 		if err != nil {
 			if inst.ID != "" {
 				writeJSON(w, statusFor(err), inst)
@@ -87,8 +92,7 @@ func main() {
 		writeJSON(w, http.StatusOK, inst)
 	})
 	mux.HandleFunc("POST /v1/instances/{name}/start", func(w http.ResponseWriter, r *http.Request) {
-		name := r.PathValue("name")
-		inst, err := svc.Start(r.Context(), name)
+		inst, err := svc.Start(r.Context(), r.PathValue("name"))
 		if err != nil {
 			writeErr(w, statusFor(err), err)
 			return
@@ -96,15 +100,54 @@ func main() {
 		writeJSON(w, http.StatusOK, inst)
 	})
 	mux.HandleFunc("DELETE /v1/instances/{name}", func(w http.ResponseWriter, r *http.Request) {
-		name := r.PathValue("name")
-		if err := svc.Delete(r.Context(), name); err != nil {
+		if err := svc.Delete(r.Context(), r.PathValue("name")); err != nil {
 			writeErr(w, statusFor(err), err)
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
 	})
 
-	fmt.Printf("tinyd listening on http://%s (db=%s runtime=%s)\n", addr, dbPath, rtAddr)
+	mux.HandleFunc("GET /v1/images", func(w http.ResponseWriter, r *http.Request) {
+		list, err := imgSvc.List(r.Context())
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, list)
+	})
+	mux.HandleFunc("POST /v1/images", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Name string `json:"Name"`
+			File string `json:"File"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeErr(w, http.StatusBadRequest, err)
+			return
+		}
+		img, err := imgSvc.Import(r.Context(), body.Name, body.File)
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, img)
+			return
+		}
+		writeJSON(w, http.StatusOK, img)
+	})
+	mux.HandleFunc("GET /v1/images/{name}", func(w http.ResponseWriter, r *http.Request) {
+		img, err := imgSvc.Inspect(r.Context(), r.PathValue("name"))
+		if err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, img)
+	})
+	mux.HandleFunc("DELETE /v1/images/{name}", func(w http.ResponseWriter, r *http.Request) {
+		if err := imgSvc.Delete(r.Context(), r.PathValue("name")); err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+	})
+
+	fmt.Printf("tinyd listening on http://%s (db=%s runtime=%s images=%s)\n", addr, dbPath, rtAddr, imageRoot)
 	fatal(http.ListenAndServe(addr, mux))
 }
 

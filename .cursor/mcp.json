@@ -1,0 +1,33 @@
+{
+  "mcpServers": {
+    "sonarqube-mcp-server": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "--pull=always",
+        "-e",
+        "SONARQUBE_URL",
+        "-e",
+        "SONARQUBE_TOKEN",
+        "-e",
+        "SONARQUBE_ORG",
+        "-e",
+        "SONARQUBE_PROJECT_KEY",
+        "-e",
+        "SONARQUBE_TOOLSETS",
+        "-v",
+        "/Users/ayushanand/Developer/tiny aws:/app/mcp-workspace:rw",
+        "sonarsource/sonarqube-mcp"
+      ],
+      "env": {
+        "SONARQUBE_URL": "https://sonarcloud.io",
+        "SONARQUBE_ORG": "ayush701-code-zm",
+        "SONARQUBE_PROJECT_KEY": "Ayush701-code-zm_arc-reactor",
+        "SONARQUBE_TOOLSETS": "projects,vortex,issues,quality-gates,measures",
+        "SONARQUBE_TOKEN": "${env:SONARQUBE_TOKEN}"
+      }
+    }
+  }
+}

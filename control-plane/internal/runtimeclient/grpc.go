@@ -55,6 +55,7 @@ func (c *GRPC) CreateInstance(ctx context.Context, inst types.Instance) (types.R
 		Image:       inst.Image,
 		Cpu:         inst.CPU,
 		MemoryBytes: inst.MemoryBytes,
+		RootfsPath:  inst.RootfsPath,
 	})
 	if err != nil {
 		return types.RuntimeView{}, err

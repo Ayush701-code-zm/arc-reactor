@@ -71,20 +71,51 @@ Good pattern (copy this shape):
 6. Optional second chart for sibling commands or smoke startup order
 7. Plain-words table under the charts
 
-2. **Detailed tech table** (not one vague line per cell).
+2. **Detailed tech explanation** — use this exact section shape (same depth as the Phase 2 image writeup the user locked).
 
-| Part | Meaning |
+After the flowchart, write these sections in order. Do not collapse them into one short table only.
+
+### 1) What you type (examples)
+- Real commands (`tiny ...`)
+- Example JSON response when useful
+- One skip/fail command example
+
+### 2) On-disk layout (example) — when files/paths change
+- Directory tree
+- What is UUID vs name vs env default
+
+### 3) Hop table (examples)
+| Hop | Example |
 |---|---|
-| What I made | Concrete change: functions, RPCs, files, status transitions. Several bullets if needed. |
-| Where | Exact paths and symbols (package, file, function). |
-| Tech removed | Named tech that left (protocol, library, API, pattern, old behavior). One line each. Say "none" if nothing was removed. |
-| Tech added | Named tech that arrived. One line each with what it does. Say "none" if nothing new. |
-| How they connect | Match the flowchart hops: who → protocol → who. |
-| What will happen | Runtime behavior now, including happy path and the main failure path. |
-| What not without it | What fails, stays broken, or stays unclear if we skip this change. |
+| HTTP / RPC / DB / Linux | concrete payload, path, or field |
 
-Name the real tech terms (example: gRPC, HTTP JSON, cgroup v2, SQLite, protobuf, SIGTERM, SIGKILL). Do not hide them behind vague words.
-Do not compress the whole change into a single short sentence. Prefer hop-by-hop flowchart + tables.
+### 4) What I made (broken down)
+| Area | Concrete change | Example |
+|---|---|---|
+| package/file | what changed | symbol or behavior |
+
+### 5) Tech removed vs added
+| Removed | Example of old behavior |
+|---|---|
+| ... | ... |
+
+| Added | Example |
+|---|---|
+| ... | ... |
+
+### 6) How they connect
+- One sentence path: CLI → … → Linux
+- Numbered example chain for one concrete name/id
+
+### 7) What will happen / what fails without it
+| Situation | Result |
+|---|---|
+| happy path | ... |
+| main failures | ... |
+
+Name the real tech terms (gRPC, HTTP JSON, cgroup v2, SQLite, protobuf, SIGTERM, SIGKILL, `rootfs_path`, etc.).
+Order is fixed: **hop-by-hop flowchart → sections 1–7 above → close block**.
+Do not replace sections 1–7 with a single compressed “Part/Detail” mega-table.
 
 Then close every reply with:
 

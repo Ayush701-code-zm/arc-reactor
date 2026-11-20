@@ -62,9 +62,10 @@ Do not dump raw scanner noise. Convert each finding into:
 |---|---|
 | `sonar-project.properties` | Present |
 | `.github/workflows/sonar.yml` | Present (runs when `SONAR_TOKEN` is set) |
-| `docs/VERIFICATION.md` | Present |
-| SonarCloud org/token | User must create and set secrets |
-| Vortex / Cursor Sonar connection | User must connect in the IDE |
+| `.cursor/mcp.json` | Present (Sonar MCP + `vortex` toolset; needs `SONARQUBE_TOKEN` env + Docker) |
+| `docs/VERIFICATION.md` | Setup steps for CI Sonar and Cursor MCP |
+| SonarCloud user token | User must export `SONARQUBE_TOKEN` (user token, not project token) |
+| Vortex subscription | Requires SonarCloud Team annual / Enterprise with Vortex; otherwise MCP may only expose non-Vortex tools |
 
-If cloud Sonar or Vortex is not connected, say what is missing in one line, then use the compiler and tests as early feedback.
-Do not block Milestone 1 coding on a live Sonar dashboard unless the user asks to finish cloud setup.
+If MCP/Vortex is not connected, say what is missing in one line, then use the compiler and tests as early feedback.
+Do not block coding on a live Vortex session unless the user asks to finish that setup.

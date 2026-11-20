@@ -24,4 +24,4 @@ The user reads fast and does not want to decode. Write so the answer is clear on
 | What went wrong | If there is an error, say the cause in one line before the fix. |
 | What could go wrong | If there is no error yet, say the main risk for the next step in one line. |
 | What we do | End with the next action: who acts, and the exact command or decision. |
-| Tech change block | After edits: hop-by-hop Mermaid first (UPDATED / UNCHANGED / REMOVED, one real command path, protocol on arrows, plain-words table), then detailed What I made / Where / Tech removed / Tech added / How they connect / What will happen / What not without it. Then the close block. See `response-style.md`. |
+| Tech change block | After edits: hop-by-hop Mermaid first, then the locked sections 1–7 tech explanation (commands/JSON, disk layout, hop table, what I made, removed vs added, connect chain, happen/fail table). Then the close block. See `response-style.md`. |

@@ -13,6 +13,11 @@ import (
 type Service struct {
 	Store   *store.Store
 	Runtime runtimeclient.Client
+	Images  ImageResolver
+}
+
+type ImageResolver interface {
+	ResolveRootfs(ctx context.Context, name string) (types.Image, error)
 }
 
 func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, error) {
@@ -20,10 +25,20 @@ func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, 
 		return types.Instance{}, err
 	}
 
+	var rootfs string
+	if s.Images != nil {
+		img, err := s.Images.ResolveRootfs(ctx, spec.Image)
+		if err != nil {
+			return types.Instance{}, err
+		}
+		rootfs = img.RootfsPath
+	}
+
 	inst := types.Instance{
 		ID:          uuid.NewString(),
 		Name:        spec.Name,
 		Image:       spec.Image,
+		RootfsPath:  rootfs,
 		CPU:         spec.CPU,
 		MemoryBytes: spec.MemoryBytes,
 		Status:      types.StatusPending,

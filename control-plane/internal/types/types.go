@@ -10,6 +10,13 @@ const (
 	StatusFailed   Status = "FAILED"
 )
 
+type ImageStatus string
+
+const (
+	ImageStatusReady  ImageStatus = "READY"
+	ImageStatusFailed ImageStatus = "FAILED"
+)
+
 type Spec struct {
 	Name        string
 	Image       string
@@ -21,6 +28,7 @@ type Instance struct {
 	ID           string
 	Name         string
 	Image        string
+	RootfsPath   string
 	CPU          uint32
 	MemoryBytes  uint64
 	Status       Status
@@ -36,5 +44,14 @@ type RuntimeView struct {
 	MemoryBytes  uint64
 	Status       Status
 	PID          int32
+	ErrorMessage string
+}
+
+type Image struct {
+	ID           string
+	Name         string
+	ArtifactPath string
+	RootfsPath   string
+	Status       ImageStatus
 	ErrorMessage string
 }

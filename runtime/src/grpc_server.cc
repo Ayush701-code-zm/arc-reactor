@@ -49,14 +49,15 @@ class RuntimeServiceImpl final : public tiny::v1::RuntimeService::Service {
     spec.id = req->id();
     spec.name = req->name();
     spec.image = req->image();
+    spec.rootfs_path = req->rootfs_path();
     spec.cpu = req->cpu();
     spec.memory_bytes = req->memory_bytes();
-    if (spec.id.empty() || spec.name.empty() || spec.image.empty() || spec.cpu < 1 ||
-        spec.memory_bytes == 0) {
+    if (spec.id.empty() || spec.name.empty() || spec.image.empty() || spec.rootfs_path.empty() ||
+        spec.cpu < 1 || spec.memory_bytes == 0) {
       resp->set_id(spec.id);
       resp->set_status(tiny::v1::INSTANCE_STATUS_FAILED);
       resp->set_pid(0);
-      resp->set_error_message("missing required create fields");
+      resp->set_error_message("missing required create fields (including rootfs_path)");
       return grpc::Status::OK;
     }
     const auto created = supervisor_->Create(spec);

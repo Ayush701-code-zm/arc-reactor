@@ -141,6 +141,11 @@ Instance Supervisor::StartLocked(Instance& inst) {
   return inst;
 #else
   std::string err;
+  if (inst.spec.rootfs_path.empty()) {
+    inst.status = Status::kFailed;
+    inst.error_message = "rootfs_path is required";
+    return inst;
+  }
   bool cgroup_ok = ApplyLimits(inst.spec.id, inst.spec.cpu, inst.spec.memory_bytes, &err);
   if (!cgroup_ok) {
     if (RequireCgroup() || !CanSkipCgroup(err)) {
@@ -176,7 +181,12 @@ Instance Supervisor::StartLocked(Instance& inst) {
       waitpid(inner, &status, 0);
       _exit(WIFEXITED(status) ? WEXITSTATUS(status) : 113);
     }
-    (void)inst.spec.image;
+    if (!EnterMountNamespace(&local)) {
+      _exit(114);
+    }
+    if (!ChrootRootfs(inst.spec.rootfs_path, &local)) {
+      _exit(115);
+    }
     prctl(PR_SET_PDEATHSIG, SIGKILL);
     execl("/bin/sleep", "sleep", "infinity", static_cast<char*>(nullptr));
     _exit(127);

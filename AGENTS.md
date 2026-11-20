@@ -10,7 +10,7 @@ These rules are hard. If a tool default conflicts with them, follow these rules 
 
 Tiny AWS is a from-scratch mini cloud on Linux primitives. We implement the mechanisms ourselves.
 
-Current phase: **Phase 1 — Milestone 1 Tiny EC2**. Source of truth for now vs later vs end: [`docs/ROADMAP.md`](../../docs/ROADMAP.md).
+Current phase: **Phase 2 — Images**. Phase 1 Tiny EC2 is done. Source of truth for now vs later vs end: [`docs/ROADMAP.md`](../../docs/ROADMAP.md).
 
 | Path | Contents |
 |---|---|
@@ -42,9 +42,9 @@ Current phase: **Phase 1 — Milestone 1 Tiny EC2**. Source of truth for now vs 
 # Working rules
 
 - Edit `rules/always/` and `rules/scoped/`, then run `scripts/sync-agent-rules.sh`. Do not edit `AGENTS.md` by hand.
-- Stay on Phase 1 until its exit criteria are met. Do not leave Milestone 1 early. See `docs/ROADMAP.md` and `docs/MILESTONE-1.md`.
-- Later phases are documented so we do not forget the destination. Do not "helpfully" implement them during M1.
-- If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on M1 or explicitly open that phase.
+- Stay on Phase 2 until its exit criteria are met. Do not jump to Phase 3+ early. See `docs/ROADMAP.md` and `docs/M2-CONTRACT.md`.
+- Phase 1 remains done and supported; do not rip out M1 lifecycle while building images.
+- If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 2 or explicitly open that phase.
 - Go changes stay in `control-plane/`. C++ changes stay in `runtime/`. A contract change starts in `proto/tiny/v1/`.
 - Keep the tree compilable. A stub with a TODO is the right placeholder.
 - Build and test with the commands in `README.md`.
@@ -59,13 +59,13 @@ Shared contracts, loaded when their paths are open:
 | `rules/scoped/cpp-runtime.md` | C++20 runtime, processes, limits |
 | `rules/scoped/proto-contract.md` | `proto/tiny/v1` gRPC contract |
 
-# Milestone 1 lock (current)
+# Phase 2 lock (current)
 
-In scope: `create`, `list`, `inspect`, `stop`, `start`, and `delete` on one Linux machine, with isolation and CPU/memory limits as decided for M1.
+In scope: local `.tar.gz` image import/list/inspect/delete, unpack to `images/<uuid>/rootfs`, instance create resolves image name to `rootfs_path`, C++ boots with mount ns + `chroot`.
 
-Out of Milestone 1: images product, storage product, full VPC, IAM depth, metadata service, eBPF, multi-node, Docker, Kubernetes, AWS API wrappers, Rust.
+Out of Phase 2: squashfs, `pivot_root`, remote registry, storage product, full VPC, IAM depth, metadata, eBPF, multi-node, Docker-as-runtime, Kubernetes, AWS API wrappers, Rust.
 
-Do not jump to Phase 2+ unless the user explicitly opens that phase.
+Do not jump to Phase 3+ unless the user explicitly opens that phase.
 
 
 # What Tiny AWS is
@@ -109,11 +109,11 @@ Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARC
 
 # Phase gate
 
-Current phase: **Phase 1 — Milestone 1 Tiny EC2**.
+Current phase: **Phase 2 — Images** (Phase 1 Tiny EC2 is done).
 
-Do not implement Phase 2+ until Phase 1 exit criteria are met, unless the user explicitly opens the next phase.
+Do not implement Phase 3+ until Phase 2 exit criteria are met, unless the user explicitly opens the next phase.
 
-If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Milestone 1 or explicitly open that phase.
+If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 2 or explicitly open that phase.
 
 # Build tools
 
@@ -191,20 +191,51 @@ Good pattern (copy this shape):
 6. Optional second chart for sibling commands or smoke startup order
 7. Plain-words table under the charts
 
-2. **Detailed tech table** (not one vague line per cell).
+2. **Detailed tech explanation** — use this exact section shape (same depth as the Phase 2 image writeup the user locked).
 
-| Part | Meaning |
+After the flowchart, write these sections in order. Do not collapse them into one short table only.
+
+### 1) What you type (examples)
+- Real commands (`tiny ...`)
+- Example JSON response when useful
+- One skip/fail command example
+
+### 2) On-disk layout (example) — when files/paths change
+- Directory tree
+- What is UUID vs name vs env default
+
+### 3) Hop table (examples)
+| Hop | Example |
 |---|---|
-| What I made | Concrete change: functions, RPCs, files, status transitions. Several bullets if needed. |
-| Where | Exact paths and symbols (package, file, function). |
-| Tech removed | Named tech that left (protocol, library, API, pattern, old behavior). One line each. Say "none" if nothing was removed. |
-| Tech added | Named tech that arrived. One line each with what it does. Say "none" if nothing new. |
-| How they connect | Match the flowchart hops: who → protocol → who. |
-| What will happen | Runtime behavior now, including happy path and the main failure path. |
-| What not without it | What fails, stays broken, or stays unclear if we skip this change. |
+| HTTP / RPC / DB / Linux | concrete payload, path, or field |
 
-Name the real tech terms (example: gRPC, HTTP JSON, cgroup v2, SQLite, protobuf, SIGTERM, SIGKILL). Do not hide them behind vague words.
-Do not compress the whole change into a single short sentence. Prefer hop-by-hop flowchart + tables.
+### 4) What I made (broken down)
+| Area | Concrete change | Example |
+|---|---|---|
+| package/file | what changed | symbol or behavior |
+
+### 5) Tech removed vs added
+| Removed | Example of old behavior |
+|---|---|
+| ... | ... |
+
+| Added | Example |
+|---|---|
+| ... | ... |
+
+### 6) How they connect
+- One sentence path: CLI → … → Linux
+- Numbered example chain for one concrete name/id
+
+### 7) What will happen / what fails without it
+| Situation | Result |
+|---|---|
+| happy path | ... |
+| main failures | ... |
+
+Name the real tech terms (gRPC, HTTP JSON, cgroup v2, SQLite, protobuf, SIGTERM, SIGKILL, `rootfs_path`, etc.).
+Order is fixed: **hop-by-hop flowchart → sections 1–7 above → close block**.
+Do not replace sections 1–7 with a single compressed “Part/Detail” mega-table.
 
 Then close every reply with:
 
@@ -261,7 +292,7 @@ The user reads fast and does not want to decode. Write so the answer is clear on
 | What went wrong | If there is an error, say the cause in one line before the fix. |
 | What could go wrong | If there is no error yet, say the main risk for the next step in one line. |
 | What we do | End with the next action: who acts, and the exact command or decision. |
-| Tech change block | After edits: hop-by-hop Mermaid first (UPDATED / UNCHANGED / REMOVED, one real command path, protocol on arrows, plain-words table), then detailed What I made / Where / Tech removed / Tech added / How they connect / What will happen / What not without it. Then the close block. See `response-style.md`. |
+| Tech change block | After edits: hop-by-hop Mermaid first, then the locked sections 1–7 tech explanation (commands/JSON, disk layout, hop table, what I made, removed vs added, connect chain, happen/fail table). Then the close block. See `response-style.md`. |
 
 
 # Socratic build mode
@@ -372,12 +403,13 @@ Do not dump raw scanner noise. Convert each finding into:
 |---|---|
 | `sonar-project.properties` | Present |
 | `.github/workflows/sonar.yml` | Present (runs when `SONAR_TOKEN` is set) |
-| `docs/VERIFICATION.md` | Present |
-| SonarCloud org/token | User must create and set secrets |
-| Vortex / Cursor Sonar connection | User must connect in the IDE |
+| `.cursor/mcp.json` | Present (Sonar MCP + `vortex` toolset; needs `SONARQUBE_TOKEN` env + Docker) |
+| `docs/VERIFICATION.md` | Setup steps for CI Sonar and Cursor MCP |
+| SonarCloud user token | User must export `SONARQUBE_TOKEN` (user token, not project token) |
+| Vortex subscription | Requires SonarCloud Team annual / Enterprise with Vortex; otherwise MCP may only expose non-Vortex tools |
 
-If cloud Sonar or Vortex is not connected, say what is missing in one line, then use the compiler and tests as early feedback.
-Do not block Milestone 1 coding on a live Sonar dashboard unless the user asks to finish cloud setup.
+If MCP/Vortex is not connected, say what is missing in one line, then use the compiler and tests as early feedback.
+Do not block coding on a live Vortex session unless the user asks to finish that setup.
 
 
 # Code comments

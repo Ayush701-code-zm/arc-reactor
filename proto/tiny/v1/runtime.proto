@@ -39,6 +39,7 @@ message CreateInstanceRequest {
   string image = 3;
   uint32 cpu = 4;
   uint64 memory_bytes = 5;
+  string rootfs_path = 6;
 }
 
 message CreateInstanceResponse {

@@ -29,7 +29,24 @@ ctest --test-dir "$BUILD_DIR" --output-on-failure
 export TINY_DB="${TINY_DB:-$ROOT/data/tiny-docker.db}"
 export TINY_RUNTIME_ADDR="${TINY_RUNTIME_ADDR:-127.0.0.1:50051}"
 export TINY_API_ADDR="${TINY_API_ADDR:-127.0.0.1:8080}"
+export TINY_IMAGE_ROOT="${TINY_IMAGE_ROOT:-$ROOT/data/images}"
 export TINY_REQUIRE_CGROUP="${TINY_REQUIRE_CGROUP:-0}"
+mkdir -p "$TINY_IMAGE_ROOT"
+
+ARCH="$(uname -m)"
+case "$ARCH" in
+  aarch64|arm64) ALPINE_ARCH=aarch64 ;;
+  x86_64|amd64) ALPINE_ARCH=x86_64 ;;
+  *) printf 'unsupported arch %s\n' "$ARCH" >&2; exit 1 ;;
+esac
+ALPINE_VER="${ALPINE_VER:-3.20.3}"
+ALPINE_TGZ="/tmp/alpine-minirootfs-${ALPINE_VER}-${ALPINE_ARCH}.tar.gz"
+ALPINE_URL="https://dl-cdn.alpinelinux.org/alpine/v3.20/releases/${ALPINE_ARCH}/alpine-minirootfs-${ALPINE_VER}-${ALPINE_ARCH}.tar.gz"
+
+printf '== fetch alpine minirootfs ==\n'
+if [[ ! -f "$ALPINE_TGZ" ]]; then
+  curl -fsSL -o "$ALPINE_TGZ" "$ALPINE_URL"
+fi
 
 printf '== start tinyruntimed (TINY_REQUIRE_CGROUP=%s) ==\n' "$TINY_REQUIRE_CGROUP"
 "$BUILD_DIR/tinyruntimed" --addr 127.0.0.1:50051 >/tmp/tinyruntimed.log 2>&1 &
@@ -65,10 +82,20 @@ for i in 1 2 3 4 5 6 7 8 9 10; do
 done
 
 TINY=control-plane/bin/tiny
+IMG="smoke-alpine"
 NAME="smoke-$(date +%s)"
 
+printf '== image import ==\n'
+"$TINY" image import --name "$IMG" --file "$ALPINE_TGZ"
+
+printf '== image list ==\n'
+"$TINY" image list
+
+printf '== image inspect ==\n'
+"$TINY" image inspect "$IMG"
+
 printf '== create ==\n'
-CREATE_JSON="$("$TINY" instance create --name "$NAME" --image alpine --cpu 1 --memory 64MB)"
+CREATE_JSON="$("$TINY" instance create --name "$NAME" --image "$IMG" --cpu 1 --memory 64MB)"
 printf '%s\n' "$CREATE_JSON"
 ID="$(printf '%s' "$CREATE_JSON" | python3 -c 'import sys,json; print(json.load(sys.stdin)["ID"])')"
 
@@ -95,10 +122,13 @@ printf '== stop ==\n'
 printf '== start ==\n'
 "$TINY" instance start "$NAME"
 
-printf '== delete ==\n'
+printf '== delete instance ==\n'
 "$TINY" instance delete "$NAME"
 
-printf 'M1 smoke passed for %s\n' "$NAME"
+printf '== image delete ==\n'
+"$TINY" image delete "$IMG"
+
+printf 'M2 smoke passed for image=%s instance=%s\n' "$IMG" "$NAME"
 if [[ "$TINY_REQUIRE_CGROUP" != "1" ]]; then
   printf 'Note: cgroup limits may be skipped on Docker Desktop. Use TINY_REQUIRE_CGROUP=1 on real Ubuntu/CI.\n'
 fi

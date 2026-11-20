@@ -47,8 +47,77 @@ CREATE TABLE IF NOT EXISTS instances (
   status TEXT NOT NULL,
   pid INTEGER NOT NULL DEFAULT 0,
   error_message TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS images (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  artifact_path TEXT NOT NULL,
+  rootfs_path TEXT NOT NULL,
+  status TEXT NOT NULL,
+  error_message TEXT NOT NULL DEFAULT ''
 );`)
 	return err
+}
+
+func (s *Store) InsertImage(ctx context.Context, img types.Image) error {
+	_, err := s.db.ExecContext(ctx, `
+INSERT INTO images (id, name, artifact_path, rootfs_path, status, error_message)
+VALUES (?, ?, ?, ?, ?, ?)`,
+		img.ID, img.Name, img.ArtifactPath, img.RootfsPath, string(img.Status), img.ErrorMessage)
+	if err != nil {
+		return fmt.Errorf("insert image: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) GetImageByName(ctx context.Context, name string) (types.Image, error) {
+	row := s.db.QueryRowContext(ctx, `
+SELECT id, name, artifact_path, rootfs_path, status, error_message FROM images WHERE name = ?`, name)
+	var img types.Image
+	var status string
+	err := row.Scan(&img.ID, &img.Name, &img.ArtifactPath, &img.RootfsPath, &status, &img.ErrorMessage)
+	if err == sql.ErrNoRows {
+		return types.Image{}, fmt.Errorf("image not found")
+	}
+	if err != nil {
+		return types.Image{}, err
+	}
+	img.Status = types.ImageStatus(status)
+	return img, nil
+}
+
+func (s *Store) ListImages(ctx context.Context) ([]types.Image, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, name, artifact_path, rootfs_path, status, error_message FROM images ORDER BY name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []types.Image
+	for rows.Next() {
+		var img types.Image
+		var status string
+		if err := rows.Scan(&img.ID, &img.Name, &img.ArtifactPath, &img.RootfsPath, &status, &img.ErrorMessage); err != nil {
+			return nil, err
+		}
+		img.Status = types.ImageStatus(status)
+		out = append(out, img)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) DeleteImage(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM images WHERE id = ?`, id)
+	return err
+}
+
+func (s *Store) CountInstancesByImage(ctx context.Context, imageName string) (int, error) {
+	row := s.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM instances WHERE image = ?`, imageName)
+	var n int
+	if err := row.Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
 }
 
 func (s *Store) InsertPending(ctx context.Context, inst types.Instance) error {

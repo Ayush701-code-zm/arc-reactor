@@ -19,9 +19,9 @@ Hard engineering rule: no Docker-based runtime, no Kubernetes dependency, and no
 
 | Phase | Name | Status |
 |---|---|---|
-| 0 | Foundation | done / in progress |
-| 1 | Tiny EC2 | CURRENT |
-| 2 | Images | locked later |
+| 0 | Foundation | done |
+| 1 | Tiny EC2 | done |
+| 2 | Images | CURRENT |
 | 3 | Storage | locked later |
 | 4 | Networking | locked later |
 | 5 | IAM | locked later |
@@ -55,7 +55,7 @@ Exit criteria:
 
 ---
 
-## PHASE 1 — Milestone 1: Tiny EC2 (CURRENT FOCUS)
+## PHASE 1 — Milestone 1: Tiny EC2 (done)
 
 Goal: a working Linux instance manager on one machine.
 
@@ -117,15 +117,17 @@ Locked contract: [`docs/M1-CONTRACT.md`](M1-CONTRACT.md)
 
 ---
 
-## PHASE 2 — Images
+## PHASE 2 — Images (CURRENT FOCUS)
 
 Build:
 
 - Rootfs / image artifacts (AMI-like local images)
-- Image registry or local image store
-- Boot instance from image
+- Local image store (`.tar.gz` import + unpack)
+- Boot instance from prepared `rootfs_path` (mount ns + `chroot`)
 
-Depends on: Phase 1 stable.
+Locked contract: [`docs/M2-CONTRACT.md`](M2-CONTRACT.md)
+
+Depends on: Phase 1 stable (done).
 
 ---
 

@@ -8,7 +8,7 @@ trigger: always_on
 
 Tiny AWS is a from-scratch mini cloud on Linux primitives. We implement the mechanisms ourselves.
 
-Current phase: **Phase 1 — Milestone 1 Tiny EC2**. Source of truth for now vs later vs end: [`docs/ROADMAP.md`](../../docs/ROADMAP.md).
+Current phase: **Phase 2 — Images**. Phase 1 Tiny EC2 is done. Source of truth for now vs later vs end: [`docs/ROADMAP.md`](../../docs/ROADMAP.md).
 
 | Path | Contents |
 |---|---|
@@ -40,9 +40,9 @@ Current phase: **Phase 1 — Milestone 1 Tiny EC2**. Source of truth for now vs 
 # Working rules
 
 - Edit `rules/always/` and `rules/scoped/`, then run `scripts/sync-agent-rules.sh`. Do not edit `AGENTS.md` by hand.
-- Stay on Phase 1 until its exit criteria are met. Do not leave Milestone 1 early. See `docs/ROADMAP.md` and `docs/MILESTONE-1.md`.
-- Later phases are documented so we do not forget the destination. Do not "helpfully" implement them during M1.
-- If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on M1 or explicitly open that phase.
+- Stay on Phase 2 until its exit criteria are met. Do not jump to Phase 3+ early. See `docs/ROADMAP.md` and `docs/M2-CONTRACT.md`.
+- Phase 1 remains done and supported; do not rip out M1 lifecycle while building images.
+- If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 2 or explicitly open that phase.
 - Go changes stay in `control-plane/`. C++ changes stay in `runtime/`. A contract change starts in `proto/tiny/v1/`.
 - Keep the tree compilable. A stub with a TODO is the right placeholder.
 - Build and test with the commands in `README.md`.
@@ -57,10 +57,10 @@ Shared contracts, loaded when their paths are open:
 | `rules/scoped/cpp-runtime.md` | C++20 runtime, processes, limits |
 | `rules/scoped/proto-contract.md` | `proto/tiny/v1` gRPC contract |
 
-# Milestone 1 lock (current)
+# Phase 2 lock (current)
 
-In scope: `create`, `list`, `inspect`, `stop`, `start`, and `delete` on one Linux machine, with isolation and CPU/memory limits as decided for M1.
+In scope: local `.tar.gz` image import/list/inspect/delete, unpack to `images/<uuid>/rootfs`, instance create resolves image name to `rootfs_path`, C++ boots with mount ns + `chroot`.
 
-Out of Milestone 1: images product, storage product, full VPC, IAM depth, metadata service, eBPF, multi-node, Docker, Kubernetes, AWS API wrappers, Rust.
+Out of Phase 2: squashfs, `pivot_root`, remote registry, storage product, full VPC, IAM depth, metadata, eBPF, multi-node, Docker-as-runtime, Kubernetes, AWS API wrappers, Rust.
 
-Do not jump to Phase 2+ unless the user explicitly opens that phase.
+Do not jump to Phase 3+ unless the user explicitly opens that phase.

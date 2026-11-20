@@ -9,6 +9,7 @@ int main() {
   spec.id = "test-id";
   spec.name = "test";
   spec.image = "alpine";
+  spec.rootfs_path = "/";
   spec.cpu = 1;
   spec.memory_bytes = 64 * 1024 * 1024;
 
