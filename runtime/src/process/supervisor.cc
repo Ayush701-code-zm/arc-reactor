@@ -199,6 +199,12 @@ Instance Supervisor::StartLocked(Instance& inst) {
     if (!EnterMountNamespace(&local)) {
       _exit(114);
     }
+    if (!EnterNetNamespace(&local)) {
+      _exit(116);
+    }
+    if (!BringUpLoopback(&local)) {
+      _exit(117);
+    }
     if (!ChrootRootfs(inst.spec.rootfs_path, &local)) {
       _exit(115);
     }

@@ -162,6 +162,43 @@ func (c *GRPC) DetachVolume(ctx context.Context, instanceID, volumeID, devicePat
 	return nil
 }
 
+func (c *GRPC) AttachNetwork(ctx context.Context, instanceID, networkID, bridgeName, vethHost, vethGuest, guestIPCIDR, gatewayIP string) error {
+	resp, err := c.client.AttachNetwork(ctx, &tinyv1.AttachNetworkRequest{
+		InstanceId:  instanceID,
+		NetworkId:   networkID,
+		BridgeName:  bridgeName,
+		VethHost:    vethHost,
+		VethGuest:   vethGuest,
+		GuestIpCidr: guestIPCIDR,
+		GatewayIp:   gatewayIP,
+	})
+	if err != nil {
+		return err
+	}
+	if resp.GetErrorMessage() != "" {
+		return fmt.Errorf("%s", resp.GetErrorMessage())
+	}
+	return nil
+}
+
+func (c *GRPC) DetachNetwork(ctx context.Context, instanceID, networkID, bridgeName, vethHost, vethGuest string, deleteBridgeIfEmpty bool) error {
+	resp, err := c.client.DetachNetwork(ctx, &tinyv1.DetachNetworkRequest{
+		InstanceId:           instanceID,
+		NetworkId:            networkID,
+		BridgeName:           bridgeName,
+		VethHost:             vethHost,
+		VethGuest:            vethGuest,
+		DeleteBridgeIfEmpty:  deleteBridgeIfEmpty,
+	})
+	if err != nil {
+		return err
+	}
+	if resp.GetErrorMessage() != "" {
+		return fmt.Errorf("%s", resp.GetErrorMessage())
+	}
+	return nil
+}
+
 func viewFromProto(it *tinyv1.Instance) types.RuntimeView {
 	if it == nil {
 		return types.RuntimeView{}

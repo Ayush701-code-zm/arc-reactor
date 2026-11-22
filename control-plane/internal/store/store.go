@@ -68,6 +68,26 @@ CREATE TABLE IF NOT EXISTS volumes (
   device_path TEXT NOT NULL DEFAULT '',
   mount_name TEXT NOT NULL DEFAULT '',
   error_message TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS networks (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  cidr TEXT NOT NULL,
+  gateway_ip TEXT NOT NULL,
+  bridge_name TEXT NOT NULL,
+  status TEXT NOT NULL,
+  error_message TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS network_attachments (
+  network_id TEXT NOT NULL,
+  instance_id TEXT NOT NULL,
+  instance_name TEXT NOT NULL,
+  guest_ip TEXT NOT NULL,
+  guest_ip_cidr TEXT NOT NULL,
+  veth_host TEXT NOT NULL,
+  veth_guest TEXT NOT NULL,
+  status TEXT NOT NULL,
+  PRIMARY KEY (network_id, instance_id)
 );`)
 	if err != nil {
 		return err
@@ -226,6 +246,150 @@ func scanVolume(r rowScanner) (types.Volume, error) {
 	}
 	vol.Status = types.VolumeStatus(status)
 	return vol, nil
+}
+
+func (s *Store) InsertNetwork(ctx context.Context, net types.Network) error {
+	_, err := s.db.ExecContext(ctx, `
+INSERT INTO networks (id, name, cidr, gateway_ip, bridge_name, status, error_message)
+VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		net.ID, net.Name, net.CIDR, net.GatewayIP, net.BridgeName, string(net.Status), net.ErrorMessage)
+	if err != nil {
+		return fmt.Errorf("insert network: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) GetNetworkByName(ctx context.Context, name string) (types.Network, error) {
+	row := s.db.QueryRowContext(ctx, `
+SELECT id, name, cidr, gateway_ip, bridge_name, status, error_message FROM networks WHERE name = ?`, name)
+	return scanNetwork(row)
+}
+
+func (s *Store) GetNetworkByID(ctx context.Context, id string) (types.Network, error) {
+	row := s.db.QueryRowContext(ctx, `
+SELECT id, name, cidr, gateway_ip, bridge_name, status, error_message FROM networks WHERE id = ?`, id)
+	return scanNetwork(row)
+}
+
+func (s *Store) ListNetworks(ctx context.Context) ([]types.Network, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT id, name, cidr, gateway_ip, bridge_name, status, error_message FROM networks ORDER BY name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []types.Network
+	for rows.Next() {
+		net, err := scanNetwork(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, net)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) DeleteNetwork(ctx context.Context, id string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM networks WHERE id = ?`, id)
+	return err
+}
+
+func (s *Store) CountAttachmentsByNetwork(ctx context.Context, networkID string) (int, error) {
+	row := s.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM network_attachments WHERE network_id = ?`, networkID)
+	var n int
+	if err := row.Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+func (s *Store) InsertAttachment(ctx context.Context, a types.NetworkAttachment) error {
+	_, err := s.db.ExecContext(ctx, `
+INSERT INTO network_attachments (
+  network_id, instance_id, instance_name, guest_ip, guest_ip_cidr, veth_host, veth_guest, status
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		a.NetworkID, a.InstanceID, a.InstanceName, a.GuestIP, a.GuestIPCIDR, a.VethHost, a.VethGuest, a.Status)
+	if err != nil {
+		return fmt.Errorf("insert network attachment: %w", err)
+	}
+	return nil
+}
+
+func (s *Store) DeleteAttachment(ctx context.Context, networkID, instanceID string) error {
+	_, err := s.db.ExecContext(ctx, `
+DELETE FROM network_attachments WHERE network_id = ? AND instance_id = ?`, networkID, instanceID)
+	return err
+}
+
+func (s *Store) GetAttachment(ctx context.Context, networkID, instanceID string) (types.NetworkAttachment, error) {
+	row := s.db.QueryRowContext(ctx, `
+SELECT network_id, instance_id, instance_name, guest_ip, guest_ip_cidr, veth_host, veth_guest, status
+FROM network_attachments WHERE network_id = ? AND instance_id = ?`, networkID, instanceID)
+	return scanAttachment(row)
+}
+
+func (s *Store) ListAttachmentsByNetwork(ctx context.Context, networkID string) ([]types.NetworkAttachment, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT network_id, instance_id, instance_name, guest_ip, guest_ip_cidr, veth_host, veth_guest, status
+FROM network_attachments WHERE network_id = ? ORDER BY guest_ip`, networkID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []types.NetworkAttachment
+	for rows.Next() {
+		a, err := scanAttachment(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+func (s *Store) ListAttachmentsByInstance(ctx context.Context, instanceID string) ([]types.NetworkAttachment, error) {
+	rows, err := s.db.QueryContext(ctx, `
+SELECT network_id, instance_id, instance_name, guest_ip, guest_ip_cidr, veth_host, veth_guest, status
+FROM network_attachments WHERE instance_id = ? ORDER BY network_id`, instanceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []types.NetworkAttachment
+	for rows.Next() {
+		a, err := scanAttachment(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+func scanNetwork(r rowScanner) (types.Network, error) {
+	var net types.Network
+	var status string
+	err := r.Scan(&net.ID, &net.Name, &net.CIDR, &net.GatewayIP, &net.BridgeName, &status, &net.ErrorMessage)
+	if err == sql.ErrNoRows {
+		return types.Network{}, fmt.Errorf("network not found")
+	}
+	if err != nil {
+		return types.Network{}, err
+	}
+	net.Status = types.NetworkStatus(status)
+	return net, nil
+}
+
+func scanAttachment(r rowScanner) (types.NetworkAttachment, error) {
+	var a types.NetworkAttachment
+	err := r.Scan(&a.NetworkID, &a.InstanceID, &a.InstanceName, &a.GuestIP, &a.GuestIPCIDR, &a.VethHost, &a.VethGuest, &a.Status)
+	if err == sql.ErrNoRows {
+		return types.NetworkAttachment{}, fmt.Errorf("network attachment not found")
+	}
+	if err != nil {
+		return types.NetworkAttachment{}, err
+	}
+	return a, nil
 }
 
 func (s *Store) CountInstancesByImage(ctx context.Context, imageName string) (int, error) {

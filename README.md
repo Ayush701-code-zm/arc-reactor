@@ -8,7 +8,7 @@ Not a Docker runtime. Not Kubernetes. Not wrapping AWS APIs.
 
 | Now | Later | End |
 |---|---|---|
-| Phases 1–3 done (EC2 + Images + Volumes) | Networking, IAM, metadata, eBPF, multi-node | Own create → isolate → limit → network → store → auth → schedule, demoed live with `tiny` |
+| Phase 4 Networking (CURRENT); 1–3 done | IAM, metadata, eBPF, multi-node | Own create → isolate → limit → network → store → auth → schedule, demoed live with `tiny` |
 
 Full phases and exit criteria: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 
@@ -60,9 +60,11 @@ Need **Linux** (Ubuntu). On a Mac use Docker as a **dev host only**.
 bash scripts/dev-ubuntu-docker.sh
 # inside the container:
 bash scripts/m1-smoke-linux.sh
+# Phase 4 networking:
+bash scripts/m4-smoke-linux.sh
 ```
 
-That builds everything, starts `tinyruntimed` + `tinyd`, runs create → list → inspect → stop → start → delete.
+That builds everything, starts `tinyruntimed` + `tinyd`, runs create → list → inspect → stop → start → delete. M4 adds network create/attach.
 
 ### Live demo (you type the commands)
 

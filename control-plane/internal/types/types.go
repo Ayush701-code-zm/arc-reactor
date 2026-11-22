@@ -22,6 +22,7 @@ type Spec struct {
 	Image       string
 	CPU         uint32
 	MemoryBytes uint64
+	Network     string
 }
 
 type Instance struct {
@@ -75,4 +76,33 @@ type Volume struct {
 	DevicePath         string
 	MountName          string
 	ErrorMessage       string
+}
+
+type NetworkStatus string
+
+const (
+	NetworkStatusReady  NetworkStatus = "READY"
+	NetworkStatusFailed NetworkStatus = "FAILED"
+)
+
+type Network struct {
+	ID           string
+	Name         string
+	CIDR         string
+	GatewayIP    string
+	BridgeName   string
+	Status       NetworkStatus
+	ErrorMessage string
+}
+
+type NetworkAttachment struct {
+	NetworkID    string
+	NetworkName  string
+	InstanceID   string
+	InstanceName string
+	GuestIP      string
+	GuestIPCIDR  string
+	VethHost     string
+	VethGuest    string
+	Status       string
 }

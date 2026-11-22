@@ -1,5 +1,6 @@
 #include "tiny/grpc_server.h"
 
+#include "tiny/process/network.h"
 #include "tiny/process/volume.h"
 #include "tiny/v1/runtime.grpc.pb.h"
 #include "tiny/v1/runtime.pb.h"
@@ -144,6 +145,42 @@ class RuntimeServiceImpl final : public tiny::v1::RuntimeService::Service {
     if (!process::DetachVolumeFromInstance(pid, req->device_path(), req->rootfs_path(), req->mount_name(),
                                            &err)) {
       resp->set_error_message(err.empty() ? "detach failed" : err);
+      return grpc::Status::OK;
+    }
+    resp->set_error_message("");
+    return grpc::Status::OK;
+  }
+
+  grpc::Status AttachNetwork(grpc::ServerContext*, const tiny::v1::AttachNetworkRequest* req,
+                             tiny::v1::AttachNetworkResponse* resp) override {
+    resp->set_network_id(req->network_id());
+    resp->set_guest_ip_cidr(req->guest_ip_cidr());
+    int32_t pid = 0;
+    std::string err;
+    if (!supervisor_->RunningPid(req->instance_id(), &pid, &err)) {
+      resp->set_error_message(err.empty() ? "instance not running" : err);
+      return grpc::Status::OK;
+    }
+    const auto attached = process::AttachNetworkToInstance(pid, req->bridge_name(), req->veth_host(),
+                                                           req->veth_guest(), req->guest_ip_cidr(),
+                                                           req->gateway_ip());
+    if (!attached.ok) {
+      resp->set_error_message(attached.error_message);
+      return grpc::Status::OK;
+    }
+    resp->set_error_message("");
+    return grpc::Status::OK;
+  }
+
+  grpc::Status DetachNetwork(grpc::ServerContext*, const tiny::v1::DetachNetworkRequest* req,
+                             tiny::v1::DetachNetworkResponse* resp) override {
+    resp->set_network_id(req->network_id());
+    int32_t pid = 0;
+    std::string err;
+    (void)supervisor_->RunningPid(req->instance_id(), &pid, &err);
+    if (!process::DetachNetworkFromInstance(pid, req->bridge_name(), req->veth_host(), req->veth_guest(),
+                                            req->delete_bridge_if_empty(), &err)) {
+      resp->set_error_message(err.empty() ? "detach network failed" : err);
       return grpc::Status::OK;
     }
     resp->set_error_message("");

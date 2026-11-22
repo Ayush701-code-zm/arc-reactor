@@ -11,10 +11,11 @@ import (
 )
 
 type Service struct {
-	Store   *store.Store
-	Runtime runtimeclient.Client
-	Images  ImageResolver
-	Volumes VolumeDetacher
+	Store    *store.Store
+	Runtime  runtimeclient.Client
+	Images   ImageResolver
+	Volumes  VolumeDetacher
+	Networks NetworkAttacher
 }
 
 type ImageResolver interface {
@@ -22,6 +23,11 @@ type ImageResolver interface {
 }
 
 type VolumeDetacher interface {
+	DetachAllForInstance(ctx context.Context, instanceID string) error
+}
+
+type NetworkAttacher interface {
+	Attach(ctx context.Context, networkName, instanceName string) (types.NetworkAttachment, error)
 	DetachAllForInstance(ctx context.Context, instanceID string) error
 }
 
@@ -80,6 +86,15 @@ func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, 
 	inst.ErrorMessage = view.ErrorMessage
 	if status == types.StatusFailed {
 		return inst, fmt.Errorf("instance startup failed: %s", view.ErrorMessage)
+	}
+	if spec.Network != "" && s.Networks != nil {
+		if _, err := s.Networks.Attach(ctx, spec.Network, inst.Name); err != nil {
+			_ = s.Runtime.DeleteInstance(ctx, inst.ID)
+			_ = s.Store.UpdateLifecycle(ctx, inst.ID, types.StatusFailed, 0, err.Error())
+			inst.Status = types.StatusFailed
+			inst.ErrorMessage = err.Error()
+			return inst, fmt.Errorf("network attach after create: %w", err)
+		}
 	}
 	return inst, nil
 }
@@ -154,6 +169,11 @@ func (s *Service) Delete(ctx context.Context, name string) error {
 	inst, err := s.Store.GetByName(ctx, name)
 	if err != nil {
 		return err
+	}
+	if s.Networks != nil {
+		if err := s.Networks.DetachAllForInstance(ctx, inst.ID); err != nil {
+			return err
+		}
 	}
 	if s.Volumes != nil {
 		if err := s.Volumes.DetachAllForInstance(ctx, inst.ID); err != nil {

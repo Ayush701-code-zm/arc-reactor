@@ -45,9 +45,9 @@ Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARC
 
 # Phase gate
 
-Current phase: **Phase 3 Storage is done** (Phases 1–3 complete).
+Current phase: **Phase 4 — Networking** (Phases 1–3 complete).
 
-Do not implement Phase 4+ unless the user explicitly opens the next phase.
+Do not implement Phase 5+ until Phase 4 exit criteria are met, unless the user explicitly opens the next phase.
 
 If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 2 or explicitly open that phase.
 

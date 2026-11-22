@@ -13,6 +13,8 @@ service RuntimeService {
   rpc DeleteInstance(DeleteInstanceRequest) returns (DeleteInstanceResponse);
   rpc AttachVolume(AttachVolumeRequest) returns (AttachVolumeResponse);
   rpc DetachVolume(DetachVolumeRequest) returns (DetachVolumeResponse);
+  rpc AttachNetwork(AttachNetworkRequest) returns (AttachNetworkResponse);
+  rpc DetachNetwork(DetachNetworkRequest) returns (DetachNetworkResponse);
 }
 
 enum InstanceStatus {
@@ -120,5 +122,35 @@ message DetachVolumeRequest {
 
 message DetachVolumeResponse {
   string volume_id = 1;
+  string error_message = 2;
+}
+
+message AttachNetworkRequest {
+  string instance_id = 1;
+  string network_id = 2;
+  string bridge_name = 3;
+  string veth_host = 4;
+  string veth_guest = 5;
+  string guest_ip_cidr = 6;
+  string gateway_ip = 7;
+}
+
+message AttachNetworkResponse {
+  string network_id = 1;
+  string guest_ip_cidr = 2;
+  string error_message = 3;
+}
+
+message DetachNetworkRequest {
+  string instance_id = 1;
+  string network_id = 2;
+  string bridge_name = 3;
+  string veth_host = 4;
+  string veth_guest = 5;
+  bool delete_bridge_if_empty = 6;
+}
+
+message DetachNetworkResponse {
+  string network_id = 1;
   string error_message = 2;
 }

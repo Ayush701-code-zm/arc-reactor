@@ -36,6 +36,8 @@ func main() {
 		runImage(client, base, os.Args[2:])
 	case "volume":
 		runVolume(client, base, os.Args[2:])
+	case "network":
+		runNetwork(client, base, os.Args[2:])
 	default:
 		usage()
 		os.Exit(2)
@@ -246,6 +248,12 @@ func parseCreate(args []string) (types.Spec, error) {
 				return spec, fmt.Errorf("--memory needs a value")
 			}
 			mem = args[i]
+		case "--network":
+			i++
+			if i >= len(args) {
+				return spec, fmt.Errorf("--network needs a value")
+			}
+			spec.Network = args[i]
 		default:
 			return spec, fmt.Errorf("unknown flag %s", args[i])
 		}
@@ -392,8 +400,107 @@ func fail(err error) {
 	os.Exit(1)
 }
 
+func runNetwork(client *http.Client, base string, args []string) {
+	if len(args) < 1 {
+		usage()
+		os.Exit(2)
+	}
+	switch args[0] {
+	case "create":
+		name, cidr, err := parseNetworkCreate(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		body := map[string]string{"Name": name, "CIDR": cidr}
+		var net types.Network
+		callJSON(client, http.MethodPost, base+"/v1/networks", body, &net, "create")
+	case "list":
+		var list []types.Network
+		callJSON(client, http.MethodGet, base+"/v1/networks", nil, &list, "list")
+	case "inspect":
+		name := mustName(args[1:])
+		var net types.Network
+		callJSON(client, http.MethodGet, base+"/v1/networks/"+url.PathEscape(name), nil, &net, "inspect")
+	case "delete":
+		name := mustName(args[1:])
+		var out map[string]any
+		callJSON(client, http.MethodDelete, base+"/v1/networks/"+url.PathEscape(name), nil, &out, "delete")
+	case "attach":
+		netName, instName, err := parseNetworkAttach(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		body := map[string]string{"Instance": instName}
+		var att types.NetworkAttachment
+		callJSON(client, http.MethodPost, base+"/v1/networks/"+url.PathEscape(netName)+"/attach", body, &att, "attach")
+	case "detach":
+		netName, instName, err := parseNetworkAttach(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		body := map[string]string{"Instance": instName}
+		var out map[string]any
+		callJSON(client, http.MethodPost, base+"/v1/networks/"+url.PathEscape(netName)+"/detach", body, &out, "detach")
+	default:
+		usage()
+		os.Exit(2)
+	}
+}
+
+func parseNetworkCreate(args []string) (string, string, error) {
+	var name, cidr string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--name":
+			i++
+			if i >= len(args) {
+				return "", "", fmt.Errorf("--name needs a value")
+			}
+			name = args[i]
+		case "--cidr":
+			i++
+			if i >= len(args) {
+				return "", "", fmt.Errorf("--cidr needs a value")
+			}
+			cidr = args[i]
+		default:
+			return "", "", fmt.Errorf("unknown flag %s", args[i])
+		}
+	}
+	if name == "" || cidr == "" {
+		return "", "", fmt.Errorf("--name and --cidr are required")
+	}
+	return name, cidr, nil
+}
+
+func parseNetworkAttach(args []string) (string, string, error) {
+	var net, inst string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--network":
+			i++
+			if i >= len(args) {
+				return "", "", fmt.Errorf("--network needs a value")
+			}
+			net = args[i]
+		case "--instance":
+			i++
+			if i >= len(args) {
+				return "", "", fmt.Errorf("--instance needs a value")
+			}
+			inst = args[i]
+		default:
+			return "", "", fmt.Errorf("unknown flag %s", args[i])
+		}
+	}
+	if net == "" || inst == "" {
+		return "", "", fmt.Errorf("--network and --instance are required")
+	}
+	return net, inst, nil
+}
+
 func usage() {
-	fmt.Fprintf(os.Stderr, `tiny instance create --name NAME --image IMAGE --cpu N --memory SIZE
+	fmt.Fprintf(os.Stderr, `tiny instance create --name NAME --image IMAGE --cpu N --memory SIZE [--network NAME]
 tiny instance list|inspect|stop|start|delete ...
 tiny image import --name NAME --file PATH.tar.gz
 tiny image list
@@ -405,6 +512,12 @@ tiny volume inspect NAME
 tiny volume delete NAME
 tiny volume attach --volume NAME --instance INST
 tiny volume detach --volume NAME
+tiny network create --name NAME --cidr CIDR
+tiny network list
+tiny network inspect NAME
+tiny network delete NAME
+tiny network attach --network NAME --instance INST
+tiny network detach --network NAME --instance INST
 
 Env: TINY_API_ADDR (default 127.0.0.1:8080). CLI talks only to tinyd over HTTP.
 `)

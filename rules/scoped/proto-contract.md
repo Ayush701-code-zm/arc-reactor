@@ -15,6 +15,7 @@ paths:
 Locked M1 decisions: [`docs/M1-CONTRACT.md`](../../docs/M1-CONTRACT.md).
 Locked M2 image decisions: [`docs/M2-CONTRACT.md`](../../docs/M2-CONTRACT.md).
 Locked M3 volume decisions: [`docs/M3-CONTRACT.md`](../../docs/M3-CONTRACT.md).
+Locked M4 network decisions: [`docs/M4-CONTRACT.md`](../../docs/M4-CONTRACT.md).
 
 | RPC | Use |
 |---|---|
@@ -26,6 +27,8 @@ Locked M3 volume decisions: [`docs/M3-CONTRACT.md`](../../docs/M3-CONTRACT.md).
 | `DeleteInstance` | Stop if needed, then remove runtime state |
 | `AttachVolume` | loop + mount `disk_path` into instance mount ns at `rootfs_path/mnt/<mount_name>` |
 | `DetachVolume` | umount + loop detach |
+| `AttachNetwork` | bridge + veth into instance netns; apply guest IP |
+| `DetachNetwork` | remove veth; optional bridge delete if empty |
 
 # CreateInstance fields (M1 + M2)
 

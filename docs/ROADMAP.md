@@ -1,6 +1,6 @@
 # Tiny AWS roadmap
 
-Source of truth for phases. **Phase 3 Storage is done.** Phase 4+ stays locked until you explicitly open it.
+Source of truth for phases. **Now** is Phase 4 — Networking. Later phases stay locked until you explicitly open them.
 
 ## What Tiny AWS is
 
@@ -23,7 +23,7 @@ Hard engineering rule: no Docker-based runtime, no Kubernetes dependency, and no
 | 1 | Tiny EC2 | done |
 | 2 | Images | done |
 | 3 | Storage | done |
-| 4 | Networking | locked later |
+| 4 | Networking | CURRENT |
 | 5 | IAM | locked later |
 | 6 | Metadata | locked later |
 | 7 | eBPF observability | locked later |
@@ -145,15 +145,17 @@ Depends on: Phase 1 + Phase 2 images (done).
 
 ---
 
-## PHASE 4 — Tiny networking (VPC-like)
+## PHASE 4 — Tiny networking (VPC-like) (CURRENT FOCUS)
 
 Build:
 
-- Virtual networking with Linux primitives
-- veth, bridges, private IPs, basic routing
-- Instance network isolation basics
+- Network create/list/inspect/delete (Go CIDR + IP pool)
+- Per-instance netns + veth + host bridge
+- Attach at create (`--network`) and via `network attach` / `detach`
 
-Depends on: Phase 1 stable. Prefer after storage/images unless the user prioritizes network.
+Locked contract: [`docs/M4-CONTRACT.md`](M4-CONTRACT.md)
+
+Depends on: Phases 1–3 done.
 
 ---
 

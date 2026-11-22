@@ -32,6 +32,12 @@ func (f *fakeRuntime) AttachVolume(context.Context, string, string, string, stri
 func (f *fakeRuntime) DetachVolume(context.Context, string, string, string, string, string) error {
 	return nil
 }
+func (f *fakeRuntime) AttachNetwork(context.Context, string, string, string, string, string, string, string) error {
+	return nil
+}
+func (f *fakeRuntime) DetachNetwork(context.Context, string, string, string, string, string, bool) error {
+	return nil
+}
 func (f *fakeRuntime) Close() error { return nil }
 
 type fakeImages struct {

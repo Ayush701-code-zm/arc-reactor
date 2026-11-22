@@ -10,6 +10,7 @@ import (
 
 	"github.com/ayushanand/tiny-aws/control-plane/internal/image"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/instance"
+	"github.com/ayushanand/tiny-aws/control-plane/internal/network"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/runtimeclient"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/store"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/types"
@@ -44,7 +45,8 @@ func main() {
 
 	imgSvc := &image.Service{Store: st, ImageRoot: imageRoot}
 	volSvc := &volume.Service{Store: st, Runtime: rt, Images: imgSvc, VolRoot: volRoot}
-	svc := &instance.Service{Store: st, Runtime: rt, Images: imgSvc, Volumes: volSvc}
+	netSvc := &network.Service{Store: st, Runtime: rt}
+	svc := &instance.Service{Store: st, Runtime: rt, Images: imgSvc, Volumes: volSvc, Networks: netSvc}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -223,6 +225,79 @@ func main() {
 			return
 		}
 		writeJSON(w, http.StatusOK, vol)
+	})
+
+	mux.HandleFunc("GET /v1/networks", func(w http.ResponseWriter, r *http.Request) {
+		list, err := netSvc.List(r.Context())
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, list)
+	})
+	mux.HandleFunc("POST /v1/networks", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Name string `json:"Name"`
+			CIDR string `json:"CIDR"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeErr(w, http.StatusBadRequest, err)
+			return
+		}
+		net, err := netSvc.Create(r.Context(), body.Name, body.CIDR)
+		if err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, net)
+	})
+	mux.HandleFunc("GET /v1/networks/{name}", func(w http.ResponseWriter, r *http.Request) {
+		net, err := netSvc.Inspect(r.Context(), r.PathValue("name"))
+		if err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, net)
+	})
+	mux.HandleFunc("DELETE /v1/networks/{name}", func(w http.ResponseWriter, r *http.Request) {
+		if err := netSvc.Delete(r.Context(), r.PathValue("name")); err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+	})
+	mux.HandleFunc("POST /v1/networks/{name}/attach", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Instance string `json:"Instance"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeErr(w, http.StatusBadRequest, err)
+			return
+		}
+		att, err := netSvc.Attach(r.Context(), r.PathValue("name"), body.Instance)
+		if err != nil {
+			if att.NetworkID != "" {
+				writeJSON(w, statusFor(err), att)
+				return
+			}
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, att)
+	})
+	mux.HandleFunc("POST /v1/networks/{name}/detach", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Instance string `json:"Instance"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeErr(w, http.StatusBadRequest, err)
+			return
+		}
+		if err := netSvc.Detach(r.Context(), r.PathValue("name"), body.Instance); err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]bool{"detached": true})
 	})
 
 	fmt.Printf("tinyd listening on http://%s (db=%s runtime=%s images=%s volumes=%s)\n", addr, dbPath, rtAddr, imageRoot, volRoot)
