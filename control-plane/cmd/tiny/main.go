@@ -78,10 +78,61 @@ func runInstance(client *http.Client, base string, args []string) {
 		name := mustName(args[1:])
 		var out map[string]any
 		callJSON(client, http.MethodDelete, base+"/v1/instances/"+url.PathEscape(name), nil, &out, "delete")
+	case "metadata":
+		name, path, err := parseInstanceMetadata(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		if path == "" {
+			var doc map[string]any
+			callJSON(client, http.MethodGet, base+"/v1/instances/"+url.PathEscape(name)+"/metadata", nil, &doc, "metadata")
+			return
+		}
+		rawURL := base + "/v1/instances/" + url.PathEscape(name) + "/meta-data/" + path
+		code, body, err := doRaw(client, http.MethodGet, rawURL)
+		if err != nil {
+			fail(err)
+		}
+		fmt.Print(string(body))
+		if code >= 300 {
+			fail(fmt.Errorf("metadata failed: HTTP %d", code))
+		}
 	default:
 		usage()
 		os.Exit(2)
 	}
+}
+
+func parseInstanceMetadata(args []string) (string, string, error) {
+	if len(args) < 1 {
+		return "", "", fmt.Errorf("expected <name> [path]")
+	}
+	name := args[0]
+	path := ""
+	if len(args) >= 2 {
+		path = strings.Trim(args[1], "/")
+	}
+	if len(args) > 2 {
+		return "", "", fmt.Errorf("expected <name> [path]")
+	}
+	return name, path, nil
+}
+
+func doRaw(client *http.Client, method, rawURL string) (int, []byte, error) {
+	req, err := http.NewRequest(method, rawURL, nil)
+	if err != nil {
+		return 0, nil, err
+	}
+	if tok := os.Getenv("TINY_TOKEN"); tok != "" {
+		req.Header.Set("Authorization", "Bearer "+tok)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	data, err := io.ReadAll(resp.Body)
+	return resp.StatusCode, data, err
 }
 
 func runImage(client *http.Client, base string, args []string) {
@@ -604,6 +655,7 @@ tiny auth refresh --refresh-token T
 tiny auth logout [--refresh-token T]
 tiny auth whoami
 tiny instance create --name NAME --image IMAGE --cpu N --memory SIZE [--network NAME]
+tiny instance metadata NAME [path]
 tiny instance list|inspect|stop|start|delete ...
 tiny image import --name NAME --file PATH.tar.gz
 tiny image list

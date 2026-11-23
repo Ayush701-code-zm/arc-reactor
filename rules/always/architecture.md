@@ -45,11 +45,11 @@ Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARC
 
 # Phase gate
 
-Current phase: **Phase 5 — IAM** (Phases 1–4 complete).
+Current phase: **Phase 6 — Metadata** (Phases 1–5 complete).
 
-Do not implement Phase 6+ until Phase 5 exit criteria are met, unless the user explicitly opens the next phase.
+Do not implement Phase 7+ until Phase 6 exit criteria are met, unless the user explicitly opens the next phase.
 
-If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 5 or explicitly open that phase.
+If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 6 or explicitly open that phase.
 
 # Build tools
 

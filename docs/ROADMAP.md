@@ -1,6 +1,6 @@
 # Tiny AWS roadmap
 
-Source of truth for phases. **Now** is Phase 5 — IAM. Later phases stay locked until you explicitly open them.
+Source of truth for phases. **Now** is Phase 6 — Metadata. Later phases stay locked until you explicitly open them.
 
 ## What Tiny AWS is
 
@@ -24,8 +24,8 @@ Hard engineering rule: no Docker-based runtime, no Kubernetes dependency, and no
 | 2 | Images | done |
 | 3 | Storage | done |
 | 4 | Networking | done |
-| 5 | IAM | CURRENT |
-| 6 | Metadata | locked later |
+| 5 | IAM | done |
+| 6 | Metadata | CURRENT |
 | 7 | eBPF observability | locked later |
 | 8 | Multi-node | locked later |
 
@@ -159,7 +159,7 @@ Depends on: Phases 1–3 done.
 
 ---
 
-## PHASE 5 — IAM + API hardening (CURRENT FOCUS)
+## PHASE 5 — IAM + API hardening (done)
 
 Locked contract: [`docs/M5-CONTRACT.md`](M5-CONTRACT.md)
 
@@ -173,12 +173,15 @@ Depends on: stable control plane from Phase 1.
 
 ---
 
-## PHASE 6 — Metadata service
+## PHASE 6 — Metadata service (CURRENT FOCUS)
+
+Locked contract: [`docs/M6-CONTRACT.md`](M6-CONTRACT.md)
 
 Build:
 
-- Instance metadata endpoint style service
-- Instance identity/config readable from inside/outside as designed
+- Instance metadata endpoint style service (tinyd HTTP)
+- Flat JSON + AWS-style paths; bind key = host veth
+- Guest in-netns forward deferred to C++ later
 
 Depends on: Phase 1 + enough network identity to make metadata useful.
 

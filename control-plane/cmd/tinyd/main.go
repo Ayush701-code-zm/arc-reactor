@@ -13,6 +13,7 @@ import (
 	"github.com/ayushanand/tiny-aws/control-plane/internal/auth"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/image"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/instance"
+	"github.com/ayushanand/tiny-aws/control-plane/internal/metadata"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/network"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/runtimeclient"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/store"
@@ -51,6 +52,7 @@ func main() {
 	netSvc := &network.Service{Store: st, Runtime: rt}
 	svc := &instance.Service{Store: st, Runtime: rt, Images: imgSvc, Volumes: volSvc, Networks: netSvc}
 	authSvc := &auth.Service{Store: st}
+	metaSvc := &metadata.Service{Store: st}
 	if err := authSvc.MaybeSeed(context.Background(), os.Getenv("TINY_BOOTSTRAP_USER"), os.Getenv("TINY_BOOTSTRAP_PASSWORD")); err != nil {
 		fatal(err)
 	}
@@ -155,6 +157,32 @@ func main() {
 			return
 		}
 		writeJSON(w, http.StatusOK, inst)
+	})
+	mux.HandleFunc("GET /v1/instances/{name}/metadata", func(w http.ResponseWriter, r *http.Request) {
+		doc, err := metaSvc.DocumentByName(r.Context(), r.PathValue("name"))
+		if err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, doc)
+	})
+	mux.HandleFunc("GET /v1/instances/{name}/meta-data/{path...}", func(w http.ResponseWriter, r *http.Request) {
+		val, err := metaSvc.PathByName(r.Context(), r.PathValue("name"), r.PathValue("path"))
+		if err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(val))
+	})
+	mux.HandleFunc("GET /v1/metadata/by-veth/{veth}", func(w http.ResponseWriter, r *http.Request) {
+		doc, err := metaSvc.DocumentByVeth(r.Context(), r.PathValue("veth"))
+		if err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, doc)
 	})
 	mux.HandleFunc("POST /v1/instances/{name}/stop", func(w http.ResponseWriter, r *http.Request) {
 		inst, err := svc.Stop(r.Context(), r.PathValue("name"))
@@ -386,6 +414,8 @@ func statusFor(err error) int {
 	case errors.Is(err, auth.ErrForbidden):
 		return http.StatusForbidden
 	case errors.Is(err, auth.ErrConflict), strings.Contains(err.Error(), "conflict"):
+		return http.StatusConflict
+	case strings.Contains(err.Error(), "not RUNNING"):
 		return http.StatusConflict
 	case strings.Contains(err.Error(), "not found"):
 		return http.StatusNotFound

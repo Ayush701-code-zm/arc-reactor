@@ -16,6 +16,7 @@ Locked M1 contract: [`docs/M1-CONTRACT.md`](../../docs/M1-CONTRACT.md).
 Locked M3 volume contract: [`docs/M3-CONTRACT.md`](../../docs/M3-CONTRACT.md).
 Locked M4 network contract: [`docs/M4-CONTRACT.md`](../../docs/M4-CONTRACT.md).
 Locked M5 IAM contract: [`docs/M5-CONTRACT.md`](../../docs/M5-CONTRACT.md).
+Locked M6 metadata contract: [`docs/M6-CONTRACT.md`](../../docs/M6-CONTRACT.md).
 
 - `cmd/tiny` is the CLI. `cmd/tinyd` is the daemon. Shared behavior lives in `internal/`.
 - Go assigns the UUID id, enforces unique `--name`, and owns desired state in SQLite.

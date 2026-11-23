@@ -349,6 +349,13 @@ FROM network_attachments WHERE network_id = ? AND instance_id = ?`, networkID, i
 	return scanAttachment(row)
 }
 
+func (s *Store) GetAttachmentByVethHost(ctx context.Context, vethHost string) (types.NetworkAttachment, error) {
+	row := s.db.QueryRowContext(ctx, `
+SELECT network_id, instance_id, instance_name, guest_ip, guest_ip_cidr, veth_host, veth_guest, status
+FROM network_attachments WHERE veth_host = ?`, vethHost)
+	return scanAttachment(row)
+}
+
 func (s *Store) ListAttachmentsByNetwork(ctx context.Context, networkID string) ([]types.NetworkAttachment, error) {
 	rows, err := s.db.QueryContext(ctx, `
 SELECT network_id, instance_id, instance_name, guest_ip, guest_ip_cidr, veth_host, veth_guest, status
