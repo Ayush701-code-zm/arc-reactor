@@ -9,12 +9,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     cmake \
     curl \
     git \
+    iproute2 \
     pkg-config \
     python3 \
     protobuf-compiler \
     protobuf-compiler-grpc \
     libprotobuf-dev \
     libgrpc++-dev \
+    util-linux \
     && rm -rf /var/lib/apt/lists/*
 
 ARG GO_VERSION=1.22.12

@@ -1,5 +1,7 @@
 package types
 
+import "time"
+
 type Status string
 
 const (
@@ -35,6 +37,7 @@ type Instance struct {
 	Status       Status
 	PID          int32
 	ErrorMessage string
+	OwnerID      string
 }
 
 type RuntimeView struct {
@@ -55,6 +58,7 @@ type Image struct {
 	RootfsPath   string
 	Status       ImageStatus
 	ErrorMessage string
+	OwnerID      string
 }
 
 type VolumeStatus string
@@ -76,6 +80,7 @@ type Volume struct {
 	DevicePath         string
 	MountName          string
 	ErrorMessage       string
+	OwnerID            string
 }
 
 type NetworkStatus string
@@ -93,6 +98,33 @@ type Network struct {
 	BridgeName   string
 	Status       NetworkStatus
 	ErrorMessage string
+	OwnerID      string
+}
+
+type UserRole = string
+
+const (
+	RoleAdmin UserRole = "admin"
+	RoleUser  UserRole = "user"
+)
+
+type User struct {
+	ID           string
+	Username     string
+	PasswordHash string `json:"-"`
+	Role         string
+}
+
+type AccessSession struct {
+	TokenHash string
+	UserID    string
+	ExpiresAt time.Time
+}
+
+type RefreshSession struct {
+	TokenHash string
+	UserID    string
+	ExpiresAt time.Time
 }
 
 type NetworkAttachment struct {

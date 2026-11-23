@@ -30,6 +30,8 @@ func main() {
 	client := &http.Client{Timeout: 120 * time.Second}
 
 	switch os.Args[1] {
+	case "auth":
+		runAuth(client, base, os.Args[2:])
 	case "instance":
 		runInstance(client, base, os.Args[2:])
 	case "image":
@@ -197,6 +199,9 @@ func doJSON(client *http.Client, method, rawURL string, body any, out any) (int,
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if tok := os.Getenv("TINY_TOKEN"); tok != "" {
+		req.Header.Set("Authorization", "Bearer "+tok)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -499,8 +504,106 @@ func parseNetworkAttach(args []string) (string, string, error) {
 	return net, inst, nil
 }
 
+func runAuth(client *http.Client, base string, args []string) {
+	if len(args) < 1 {
+		usage()
+		os.Exit(2)
+	}
+	switch args[0] {
+	case "bootstrap":
+		user, pass, err := parseUserPass(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		body := map[string]string{"Username": user, "Password": pass}
+		var out types.User
+		callJSON(client, http.MethodPost, base+"/v1/auth/bootstrap", body, &out, "bootstrap")
+	case "login":
+		user, pass, err := parseUserPass(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		body := map[string]string{"Username": user, "Password": pass}
+		var out map[string]any
+		callJSON(client, http.MethodPost, base+"/v1/auth/login", body, &out, "login")
+		if tok, ok := out["AccessToken"].(string); ok && tok != "" {
+			fmt.Fprintf(os.Stderr, "export TINY_TOKEN=%s\n", tok)
+		}
+	case "refresh":
+		rt, err := parseRefresh(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		body := map[string]string{"RefreshToken": rt}
+		var out map[string]any
+		callJSON(client, http.MethodPost, base+"/v1/auth/refresh", body, &out, "refresh")
+		if tok, ok := out["AccessToken"].(string); ok && tok != "" {
+			fmt.Fprintf(os.Stderr, "export TINY_TOKEN=%s\n", tok)
+		}
+	case "logout":
+		rt, _ := parseRefresh(args[1:])
+		body := map[string]string{"RefreshToken": rt}
+		var out map[string]any
+		callJSON(client, http.MethodPost, base+"/v1/auth/logout", body, &out, "logout")
+	case "whoami":
+		var out types.User
+		callJSON(client, http.MethodGet, base+"/v1/auth/whoami", nil, &out, "whoami")
+	default:
+		usage()
+		os.Exit(2)
+	}
+}
+
+func parseUserPass(args []string) (string, string, error) {
+	var user, pass string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--username":
+			i++
+			if i >= len(args) {
+				return "", "", fmt.Errorf("--username needs a value")
+			}
+			user = args[i]
+		case "--password":
+			i++
+			if i >= len(args) {
+				return "", "", fmt.Errorf("--password needs a value")
+			}
+			pass = args[i]
+		default:
+			return "", "", fmt.Errorf("unknown flag %s", args[i])
+		}
+	}
+	if user == "" || pass == "" {
+		return "", "", fmt.Errorf("--username and --password are required")
+	}
+	return user, pass, nil
+}
+
+func parseRefresh(args []string) (string, error) {
+	var rt string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--refresh-token":
+			i++
+			if i >= len(args) {
+				return "", fmt.Errorf("--refresh-token needs a value")
+			}
+			rt = args[i]
+		default:
+			return "", fmt.Errorf("unknown flag %s", args[i])
+		}
+	}
+	return rt, nil
+}
+
 func usage() {
-	fmt.Fprintf(os.Stderr, `tiny instance create --name NAME --image IMAGE --cpu N --memory SIZE [--network NAME]
+	fmt.Fprintf(os.Stderr, `tiny auth bootstrap --username U --password P
+tiny auth login --username U --password P
+tiny auth refresh --refresh-token T
+tiny auth logout [--refresh-token T]
+tiny auth whoami
+tiny instance create --name NAME --image IMAGE --cpu N --memory SIZE [--network NAME]
 tiny instance list|inspect|stop|start|delete ...
 tiny image import --name NAME --file PATH.tar.gz
 tiny image list
@@ -519,6 +622,6 @@ tiny network delete NAME
 tiny network attach --network NAME --instance INST
 tiny network detach --network NAME --instance INST
 
-Env: TINY_API_ADDR (default 127.0.0.1:8080). CLI talks only to tinyd over HTTP.
+Env: TINY_API_ADDR (default 127.0.0.1:8080), TINY_TOKEN (Bearer access token).
 `)
 }

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ayushanand/tiny-aws/control-plane/internal/authtest"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/store"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/types"
 )
@@ -85,7 +86,7 @@ func TestCreateListStopStartDelete(t *testing.T) {
 	vols := &fakeVolumes{}
 	svc := newService(t, &fakeRuntime{})
 	svc.Volumes = vols
-	ctx := context.Background()
+	ctx := authtest.Ctx()
 
 	inst, err := svc.Create(ctx, types.Spec{Name: "web", Image: "alpine", CPU: 1, MemoryBytes: 64 << 20})
 	if err != nil {
@@ -125,7 +126,7 @@ func TestCreateRuntimeFailureMarksFailed(t *testing.T) {
 		},
 	}
 	svc := newService(t, rt)
-	inst, err := svc.Create(context.Background(), types.Spec{
+	inst, err := svc.Create(authtest.Ctx(), types.Spec{
 		Name: "bad", Image: "alpine", CPU: 1, MemoryBytes: 1,
 	})
 	if err == nil {
@@ -134,7 +135,7 @@ func TestCreateRuntimeFailureMarksFailed(t *testing.T) {
 	if inst.Status != types.StatusFailed {
 		t.Fatalf("status=%s", inst.Status)
 	}
-	got, err := svc.Store.GetByName(context.Background(), "bad")
+	got, err := svc.Store.GetByName(authtest.Ctx(), "bad")
 	if err != nil || got.Status != types.StatusFailed {
 		t.Fatalf("db=%+v err=%v", got, err)
 	}
@@ -145,7 +146,7 @@ func TestDeleteKeepsRowWhenRuntimeFails(t *testing.T) {
 		deleteFn: func(string) error { return errors.New("still running") },
 	}
 	svc := newService(t, rt)
-	ctx := context.Background()
+	ctx := authtest.Ctx()
 	if _, err := svc.Create(ctx, types.Spec{Name: "keep", Image: "alpine", CPU: 1, MemoryBytes: 1}); err != nil {
 		t.Fatal(err)
 	}
@@ -164,7 +165,7 @@ func TestStopRequiresStoppedConfirmation(t *testing.T) {
 		},
 	}
 	svc := newService(t, rt)
-	ctx := context.Background()
+	ctx := authtest.Ctx()
 	if _, err := svc.Create(ctx, types.Spec{Name: "sticky", Image: "alpine", CPU: 1, MemoryBytes: 1}); err != nil {
 		t.Fatal(err)
 	}
@@ -183,7 +184,7 @@ func TestStopRequiresStoppedConfirmation(t *testing.T) {
 
 func TestValidateSpec(t *testing.T) {
 	svc := newService(t, &fakeRuntime{})
-	_, err := svc.Create(context.Background(), types.Spec{})
+	_, err := svc.Create(authtest.Ctx(), types.Spec{})
 	if err == nil {
 		t.Fatal("expected validation error")
 	}

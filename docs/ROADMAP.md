@@ -1,6 +1,6 @@
 # Tiny AWS roadmap
 
-Source of truth for phases. **Now** is Phase 4 — Networking. Later phases stay locked until you explicitly open them.
+Source of truth for phases. **Now** is Phase 5 — IAM. Later phases stay locked until you explicitly open them.
 
 ## What Tiny AWS is
 
@@ -23,8 +23,8 @@ Hard engineering rule: no Docker-based runtime, no Kubernetes dependency, and no
 | 1 | Tiny EC2 | done |
 | 2 | Images | done |
 | 3 | Storage | done |
-| 4 | Networking | CURRENT |
-| 5 | IAM | locked later |
+| 4 | Networking | done |
+| 5 | IAM | CURRENT |
 | 6 | Metadata | locked later |
 | 7 | eBPF observability | locked later |
 | 8 | Multi-node | locked later |
@@ -145,7 +145,7 @@ Depends on: Phase 1 + Phase 2 images (done).
 
 ---
 
-## PHASE 4 — Tiny networking (VPC-like) (CURRENT FOCUS)
+## PHASE 4 — Tiny networking (VPC-like) (done)
 
 Build:
 
@@ -159,7 +159,9 @@ Depends on: Phases 1–3 done.
 
 ---
 
-## PHASE 5 — IAM + API hardening
+## PHASE 5 — IAM + API hardening (CURRENT FOCUS)
+
+Locked contract: [`docs/M5-CONTRACT.md`](M5-CONTRACT.md)
 
 Build:
 

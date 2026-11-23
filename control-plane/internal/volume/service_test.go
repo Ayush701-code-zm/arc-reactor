@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/ayushanand/tiny-aws/control-plane/internal/authtest"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/store"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/types"
 )
@@ -57,7 +58,7 @@ func TestVolumeCreateListDelete(t *testing.T) {
 	t.Cleanup(func() { _ = st.Close() })
 
 	svc := &Service{Store: st, Runtime: &fakeRuntime{}, VolRoot: filepath.Join(dir, "vols")}
-	ctx := context.Background()
+	ctx := authtest.Ctx()
 	vol, err := svc.Create(ctx, "data", 8<<20)
 	if err != nil {
 		t.Fatal(err)
@@ -91,9 +92,9 @@ func TestVolumeAttachDetach(t *testing.T) {
 	rootfs := filepath.Join(dir, "rootfs")
 	_ = os.MkdirAll(rootfs, 0o755)
 
-	ctx := context.Background()
+	ctx := authtest.Ctx()
 	inst := types.Instance{
-		ID: "inst-1", Name: "web", Image: "alpine", Status: types.StatusRunning, CPU: 1, MemoryBytes: 64 << 20,
+		ID: "inst-1", Name: "web", Image: "alpine", Status: types.StatusRunning, CPU: 1, MemoryBytes: 64 << 20, OwnerID: "test-owner",
 	}
 	if err := st.InsertPending(ctx, inst); err != nil {
 		t.Fatal(err)

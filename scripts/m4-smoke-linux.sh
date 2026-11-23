@@ -9,6 +9,15 @@ if [[ "$(uname -s)" != "Linux" ]]; then
   exit 1
 fi
 
+if ! command -v ip >/dev/null 2>&1; then
+  printf 'ip (iproute2) is required for M4 networking. Rebuild the dev image or: apt-get install -y iproute2\n' >&2
+  exit 1
+fi
+if ! command -v nsenter >/dev/null 2>&1; then
+  printf 'nsenter (util-linux) is required for M4 networking.\n' >&2
+  exit 1
+fi
+
 BUILD_DIR="${TINY_RUNTIME_BUILD_DIR:-$ROOT/runtime/build-linux}"
 
 mkdir -p data control-plane/bin "$BUILD_DIR"
@@ -94,6 +103,15 @@ TINY=control-plane/bin/tiny
 IMG="m4-alpine"
 NAME="m4-inst-$(date +%s)"
 NET="m4-net"
+
+printf '== auth bootstrap + login ==\n'
+"$TINY" auth bootstrap --username admin --password adminadmin || true
+LOGIN_JSON="$("$TINY" auth login --username admin --password adminadmin)"
+export TINY_TOKEN="$(printf '%s' "$LOGIN_JSON" | python3 -c 'import sys,json; print(json.load(sys.stdin)["AccessToken"])')"
+if [[ -z "${TINY_TOKEN}" ]]; then
+  printf 'login failed\n' >&2
+  exit 1
+fi
 
 printf '== image import ==\n'
 "$TINY" image import --name "$IMG" --file "$ALPINE_TGZ"

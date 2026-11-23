@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ayushanand/tiny-aws/control-plane/internal/auth"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/store"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/types"
 	"github.com/google/uuid"
@@ -47,6 +48,10 @@ func (s *Service) Import(ctx context.Context, name, filePath string) (types.Imag
 	if !strings.HasSuffix(strings.ToLower(filePath), ".tar.gz") && !strings.HasSuffix(strings.ToLower(filePath), ".tgz") {
 		return types.Image{}, fmt.Errorf("only .tar.gz images are supported")
 	}
+	ownerID, err := auth.OwnerID(ctx)
+	if err != nil {
+		return types.Image{}, err
+	}
 	if _, err := s.Store.GetImageByName(ctx, name); err == nil {
 		return types.Image{}, fmt.Errorf("image name %q already exists", name)
 	}
@@ -74,6 +79,7 @@ func (s *Service) Import(ctx context.Context, name, filePath string) (types.Imag
 		ArtifactPath: destArtifact,
 		RootfsPath:   rootfs,
 		Status:       types.ImageStatusReady,
+		OwnerID:      ownerID,
 	}
 	if err := ExtractTarGz(destArtifact, rootfs); err != nil {
 		img.Status = types.ImageStatusFailed
@@ -89,16 +95,40 @@ func (s *Service) Import(ctx context.Context, name, filePath string) (types.Imag
 }
 
 func (s *Service) List(ctx context.Context) ([]types.Image, error) {
-	return s.Store.ListImages(ctx)
+	ownerID, err := auth.OwnerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	all, err := s.Store.ListImages(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]types.Image, 0, len(all))
+	for _, img := range all {
+		if img.OwnerID == ownerID {
+			out = append(out, img)
+		}
+	}
+	return out, nil
 }
 
 func (s *Service) Inspect(ctx context.Context, name string) (types.Image, error) {
-	return s.Store.GetImageByName(ctx, name)
+	img, err := s.Store.GetImageByName(ctx, name)
+	if err != nil {
+		return types.Image{}, err
+	}
+	if err := auth.EnsureOwner(ctx, img.OwnerID); err != nil {
+		return types.Image{}, err
+	}
+	return img, nil
 }
 
 func (s *Service) Delete(ctx context.Context, name string) error {
 	img, err := s.Store.GetImageByName(ctx, name)
 	if err != nil {
+		return err
+	}
+	if err := auth.EnsureOwner(ctx, img.OwnerID); err != nil {
 		return err
 	}
 	n, err := s.Store.CountInstancesByImage(ctx, name)
@@ -116,6 +146,9 @@ func (s *Service) Delete(ctx context.Context, name string) error {
 func (s *Service) ResolveRootfs(ctx context.Context, name string) (types.Image, error) {
 	img, err := s.Store.GetImageByName(ctx, name)
 	if err != nil {
+		return types.Image{}, err
+	}
+	if err := auth.EnsureOwner(ctx, img.OwnerID); err != nil {
 		return types.Image{}, err
 	}
 	if img.Status != types.ImageStatusReady {

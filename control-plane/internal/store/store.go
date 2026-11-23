@@ -93,14 +93,35 @@ CREATE TABLE IF NOT EXISTS network_attachments (
 		return err
 	}
 	_, _ = s.db.Exec(`ALTER TABLE instances ADD COLUMN rootfs_path TEXT NOT NULL DEFAULT ''`)
-	return nil
+	_, _ = s.db.Exec(`ALTER TABLE instances ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''`)
+	_, _ = s.db.Exec(`ALTER TABLE images ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''`)
+	_, _ = s.db.Exec(`ALTER TABLE volumes ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''`)
+	_, _ = s.db.Exec(`ALTER TABLE networks ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''`)
+	_, err = s.db.Exec(`
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  username TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  role TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS access_sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS refresh_sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  expires_at TEXT NOT NULL
+);`)
+	return err
 }
 
 func (s *Store) InsertImage(ctx context.Context, img types.Image) error {
 	_, err := s.db.ExecContext(ctx, `
-INSERT INTO images (id, name, artifact_path, rootfs_path, status, error_message)
-VALUES (?, ?, ?, ?, ?, ?)`,
-		img.ID, img.Name, img.ArtifactPath, img.RootfsPath, string(img.Status), img.ErrorMessage)
+INSERT INTO images (id, name, artifact_path, rootfs_path, status, error_message, owner_id)
+VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		img.ID, img.Name, img.ArtifactPath, img.RootfsPath, string(img.Status), img.ErrorMessage, img.OwnerID)
 	if err != nil {
 		return fmt.Errorf("insert image: %w", err)
 	}
@@ -109,10 +130,10 @@ VALUES (?, ?, ?, ?, ?, ?)`,
 
 func (s *Store) GetImageByName(ctx context.Context, name string) (types.Image, error) {
 	row := s.db.QueryRowContext(ctx, `
-SELECT id, name, artifact_path, rootfs_path, status, error_message FROM images WHERE name = ?`, name)
+SELECT id, name, artifact_path, rootfs_path, status, error_message, owner_id FROM images WHERE name = ?`, name)
 	var img types.Image
 	var status string
-	err := row.Scan(&img.ID, &img.Name, &img.ArtifactPath, &img.RootfsPath, &status, &img.ErrorMessage)
+	err := row.Scan(&img.ID, &img.Name, &img.ArtifactPath, &img.RootfsPath, &status, &img.ErrorMessage, &img.OwnerID)
 	if err == sql.ErrNoRows {
 		return types.Image{}, fmt.Errorf("image not found")
 	}
@@ -125,7 +146,7 @@ SELECT id, name, artifact_path, rootfs_path, status, error_message FROM images W
 
 func (s *Store) ListImages(ctx context.Context) ([]types.Image, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, name, artifact_path, rootfs_path, status, error_message FROM images ORDER BY name`)
+SELECT id, name, artifact_path, rootfs_path, status, error_message, owner_id FROM images ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +155,7 @@ SELECT id, name, artifact_path, rootfs_path, status, error_message FROM images O
 	for rows.Next() {
 		var img types.Image
 		var status string
-		if err := rows.Scan(&img.ID, &img.Name, &img.ArtifactPath, &img.RootfsPath, &status, &img.ErrorMessage); err != nil {
+		if err := rows.Scan(&img.ID, &img.Name, &img.ArtifactPath, &img.RootfsPath, &status, &img.ErrorMessage, &img.OwnerID); err != nil {
 			return nil, err
 		}
 		img.Status = types.ImageStatus(status)
@@ -151,10 +172,10 @@ func (s *Store) DeleteImage(ctx context.Context, id string) error {
 func (s *Store) InsertVolume(ctx context.Context, vol types.Volume) error {
 	_, err := s.db.ExecContext(ctx, `
 INSERT INTO volumes (
-  id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message, owner_id
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		vol.ID, vol.Name, vol.SizeBytes, vol.DiskPath, string(vol.Status),
-		vol.AttachedInstanceID, vol.AttachedInstance, vol.DevicePath, vol.MountName, vol.ErrorMessage)
+		vol.AttachedInstanceID, vol.AttachedInstance, vol.DevicePath, vol.MountName, vol.ErrorMessage, vol.OwnerID)
 	if err != nil {
 		return fmt.Errorf("insert volume: %w", err)
 	}
@@ -163,21 +184,21 @@ INSERT INTO volumes (
 
 func (s *Store) GetVolumeByName(ctx context.Context, name string) (types.Volume, error) {
 	row := s.db.QueryRowContext(ctx, `
-SELECT id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message
+SELECT id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message, owner_id
 FROM volumes WHERE name = ?`, name)
 	return scanVolume(row)
 }
 
 func (s *Store) GetVolumeByID(ctx context.Context, id string) (types.Volume, error) {
 	row := s.db.QueryRowContext(ctx, `
-SELECT id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message
+SELECT id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message, owner_id
 FROM volumes WHERE id = ?`, id)
 	return scanVolume(row)
 }
 
 func (s *Store) ListVolumes(ctx context.Context) ([]types.Volume, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message
+SELECT id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message, owner_id
 FROM volumes ORDER BY name`)
 	if err != nil {
 		return nil, err
@@ -196,7 +217,7 @@ FROM volumes ORDER BY name`)
 
 func (s *Store) ListVolumesByInstanceID(ctx context.Context, instanceID string) ([]types.Volume, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message
+SELECT id, name, size_bytes, disk_path, status, attached_instance_id, attached_instance, device_path, mount_name, error_message, owner_id
 FROM volumes WHERE attached_instance_id = ? AND status = ? ORDER BY name`,
 		instanceID, string(types.VolumeStatusAttached))
 	if err != nil {
@@ -237,7 +258,7 @@ func scanVolume(r rowScanner) (types.Volume, error) {
 	var vol types.Volume
 	var status string
 	err := r.Scan(&vol.ID, &vol.Name, &vol.SizeBytes, &vol.DiskPath, &status,
-		&vol.AttachedInstanceID, &vol.AttachedInstance, &vol.DevicePath, &vol.MountName, &vol.ErrorMessage)
+		&vol.AttachedInstanceID, &vol.AttachedInstance, &vol.DevicePath, &vol.MountName, &vol.ErrorMessage, &vol.OwnerID)
 	if err == sql.ErrNoRows {
 		return types.Volume{}, fmt.Errorf("volume not found")
 	}
@@ -250,9 +271,9 @@ func scanVolume(r rowScanner) (types.Volume, error) {
 
 func (s *Store) InsertNetwork(ctx context.Context, net types.Network) error {
 	_, err := s.db.ExecContext(ctx, `
-INSERT INTO networks (id, name, cidr, gateway_ip, bridge_name, status, error_message)
-VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		net.ID, net.Name, net.CIDR, net.GatewayIP, net.BridgeName, string(net.Status), net.ErrorMessage)
+INSERT INTO networks (id, name, cidr, gateway_ip, bridge_name, status, error_message, owner_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		net.ID, net.Name, net.CIDR, net.GatewayIP, net.BridgeName, string(net.Status), net.ErrorMessage, net.OwnerID)
 	if err != nil {
 		return fmt.Errorf("insert network: %w", err)
 	}
@@ -261,19 +282,19 @@ VALUES (?, ?, ?, ?, ?, ?, ?)`,
 
 func (s *Store) GetNetworkByName(ctx context.Context, name string) (types.Network, error) {
 	row := s.db.QueryRowContext(ctx, `
-SELECT id, name, cidr, gateway_ip, bridge_name, status, error_message FROM networks WHERE name = ?`, name)
+SELECT id, name, cidr, gateway_ip, bridge_name, status, error_message, owner_id FROM networks WHERE name = ?`, name)
 	return scanNetwork(row)
 }
 
 func (s *Store) GetNetworkByID(ctx context.Context, id string) (types.Network, error) {
 	row := s.db.QueryRowContext(ctx, `
-SELECT id, name, cidr, gateway_ip, bridge_name, status, error_message FROM networks WHERE id = ?`, id)
+SELECT id, name, cidr, gateway_ip, bridge_name, status, error_message, owner_id FROM networks WHERE id = ?`, id)
 	return scanNetwork(row)
 }
 
 func (s *Store) ListNetworks(ctx context.Context) ([]types.Network, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, name, cidr, gateway_ip, bridge_name, status, error_message FROM networks ORDER BY name`)
+SELECT id, name, cidr, gateway_ip, bridge_name, status, error_message, owner_id FROM networks ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +390,7 @@ FROM network_attachments WHERE instance_id = ? ORDER BY network_id`, instanceID)
 func scanNetwork(r rowScanner) (types.Network, error) {
 	var net types.Network
 	var status string
-	err := r.Scan(&net.ID, &net.Name, &net.CIDR, &net.GatewayIP, &net.BridgeName, &status, &net.ErrorMessage)
+	err := r.Scan(&net.ID, &net.Name, &net.CIDR, &net.GatewayIP, &net.BridgeName, &status, &net.ErrorMessage, &net.OwnerID)
 	if err == sql.ErrNoRows {
 		return types.Network{}, fmt.Errorf("network not found")
 	}
@@ -403,9 +424,9 @@ func (s *Store) CountInstancesByImage(ctx context.Context, imageName string) (in
 
 func (s *Store) InsertPending(ctx context.Context, inst types.Instance) error {
 	_, err := s.db.ExecContext(ctx, `
-INSERT INTO instances (id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		inst.ID, inst.Name, inst.Image, inst.RootfsPath, inst.CPU, inst.MemoryBytes, string(inst.Status), inst.PID, inst.ErrorMessage)
+INSERT INTO instances (id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message, owner_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		inst.ID, inst.Name, inst.Image, inst.RootfsPath, inst.CPU, inst.MemoryBytes, string(inst.Status), inst.PID, inst.ErrorMessage, inst.OwnerID)
 	if err != nil {
 		return fmt.Errorf("insert instance: %w", err)
 	}
@@ -432,16 +453,16 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 }
 
 func (s *Store) GetByName(ctx context.Context, name string) (types.Instance, error) {
-	return s.scanOne(ctx, `SELECT id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message FROM instances WHERE name = ?`, name)
+	return s.scanOne(ctx, `SELECT id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message, owner_id FROM instances WHERE name = ?`, name)
 }
 
 func (s *Store) GetByID(ctx context.Context, id string) (types.Instance, error) {
-	return s.scanOne(ctx, `SELECT id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message FROM instances WHERE id = ?`, id)
+	return s.scanOne(ctx, `SELECT id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message, owner_id FROM instances WHERE id = ?`, id)
 }
 
 func (s *Store) List(ctx context.Context) ([]types.Instance, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message FROM instances ORDER BY name`)
+SELECT id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message, owner_id FROM instances ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +483,7 @@ func (s *Store) scanOne(ctx context.Context, q string, arg any) (types.Instance,
 	row := s.db.QueryRowContext(ctx, q, arg)
 	var inst types.Instance
 	var status string
-	err := row.Scan(&inst.ID, &inst.Name, &inst.Image, &inst.RootfsPath, &inst.CPU, &inst.MemoryBytes, &status, &inst.PID, &inst.ErrorMessage)
+	err := row.Scan(&inst.ID, &inst.Name, &inst.Image, &inst.RootfsPath, &inst.CPU, &inst.MemoryBytes, &status, &inst.PID, &inst.ErrorMessage, &inst.OwnerID)
 	if err == sql.ErrNoRows {
 		return types.Instance{}, fmt.Errorf("instance not found")
 	}
@@ -480,7 +501,7 @@ type rowScanner interface {
 func scanRow(r rowScanner) (types.Instance, error) {
 	var inst types.Instance
 	var status string
-	if err := r.Scan(&inst.ID, &inst.Name, &inst.Image, &inst.RootfsPath, &inst.CPU, &inst.MemoryBytes, &status, &inst.PID, &inst.ErrorMessage); err != nil {
+	if err := r.Scan(&inst.ID, &inst.Name, &inst.Image, &inst.RootfsPath, &inst.CPU, &inst.MemoryBytes, &status, &inst.PID, &inst.ErrorMessage, &inst.OwnerID); err != nil {
 		return types.Instance{}, err
 	}
 	inst.Status = types.Status(status)

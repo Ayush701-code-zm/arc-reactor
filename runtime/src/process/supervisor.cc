@@ -10,6 +10,7 @@
 #include <thread>
 
 #if defined(__linux__)
+#include <poll.h>
 #include <sys/prctl.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -170,14 +171,24 @@ Instance Supervisor::StartLocked(Instance& inst) {
     }
   }
 
+  int ready_pipe[2] = {-1, -1};
+  if (pipe(ready_pipe) != 0) {
+    inst.status = Status::kFailed;
+    inst.error_message = "ready pipe failed";
+    return inst;
+  }
+
   const pid_t pid = fork();
   if (pid < 0) {
+    close(ready_pipe[0]);
+    close(ready_pipe[1]);
     inst.status = Status::kFailed;
     inst.error_message = "fork failed";
     return inst;
   }
 
   if (pid == 0) {
+    close(ready_pipe[0]);
     setpgid(0, 0);
     if (cgroup_ok) {
       std::string local;
@@ -192,6 +203,7 @@ Instance Supervisor::StartLocked(Instance& inst) {
     const pid_t inner = fork();
     if (inner < 0) _exit(112);
     if (inner > 0) {
+      close(ready_pipe[1]);
       int status = 0;
       waitpid(inner, &status, 0);
       _exit(WIFEXITED(status) ? WEXITSTATUS(status) : 113);
@@ -205,12 +217,36 @@ Instance Supervisor::StartLocked(Instance& inst) {
     if (!BringUpLoopback(&local)) {
       _exit(117);
     }
+    const char ready = 1;
+    if (write(ready_pipe[1], &ready, 1) != 1) {
+      _exit(118);
+    }
+    close(ready_pipe[1]);
     if (!ChrootRootfs(inst.spec.rootfs_path, &local)) {
       _exit(115);
     }
     prctl(PR_SET_PDEATHSIG, SIGKILL);
     execl("/bin/sleep", "sleep", "infinity", static_cast<char*>(nullptr));
     _exit(127);
+  }
+
+  close(ready_pipe[1]);
+  char ready = 0;
+  pollfd pfd{};
+  pfd.fd = ready_pipe[0];
+  pfd.events = POLLIN;
+  const int pr = poll(&pfd, 1, 5000);
+  if (pr > 0) {
+    (void)read(ready_pipe[0], &ready, 1);
+  }
+  close(ready_pipe[0]);
+  if (ready != 1) {
+    kill(-pid, SIGKILL);
+    waitpid(pid, nullptr, 0);
+    inst.status = Status::kFailed;
+    inst.pid = 0;
+    inst.error_message = "instance namespaces not ready";
+    return inst;
   }
 
   inst.pid = static_cast<int32_t>(pid);

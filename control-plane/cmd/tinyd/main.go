@@ -1,13 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/ayushanand/tiny-aws/control-plane/internal/auth"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/image"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/instance"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/network"
@@ -47,9 +50,78 @@ func main() {
 	volSvc := &volume.Service{Store: st, Runtime: rt, Images: imgSvc, VolRoot: volRoot}
 	netSvc := &network.Service{Store: st, Runtime: rt}
 	svc := &instance.Service{Store: st, Runtime: rt, Images: imgSvc, Volumes: volSvc, Networks: netSvc}
+	authSvc := &auth.Service{Store: st}
+	if err := authSvc.MaybeSeed(context.Background(), os.Getenv("TINY_BOOTSTRAP_USER"), os.Getenv("TINY_BOOTSTRAP_PASSWORD")); err != nil {
+		fatal(err)
+	}
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	})
+	mux.HandleFunc("POST /v1/auth/bootstrap", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Username string `json:"Username"`
+			Password string `json:"Password"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeErr(w, http.StatusBadRequest, err)
+			return
+		}
+		user, err := authSvc.Bootstrap(r.Context(), body.Username, body.Password)
+		if err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, user)
+	})
+	mux.HandleFunc("POST /v1/auth/login", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			Username string `json:"Username"`
+			Password string `json:"Password"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeErr(w, http.StatusBadRequest, err)
+			return
+		}
+		pair, err := authSvc.Login(r.Context(), body.Username, body.Password)
+		if err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, pair)
+	})
+	mux.HandleFunc("POST /v1/auth/refresh", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			RefreshToken string `json:"RefreshToken"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeErr(w, http.StatusBadRequest, err)
+			return
+		}
+		pair, err := authSvc.Refresh(r.Context(), body.RefreshToken)
+		if err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, pair)
+	})
+	mux.HandleFunc("POST /v1/auth/logout", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			RefreshToken string `json:"RefreshToken"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		access, _ := auth.BearerToken(r.Header.Get("Authorization"))
+		_ = authSvc.Logout(r.Context(), access, body.RefreshToken)
+		writeJSON(w, http.StatusOK, map[string]bool{"logged_out": true})
+	})
+	mux.HandleFunc("GET /v1/auth/whoami", func(w http.ResponseWriter, r *http.Request) {
+		user, err := authSvc.WhoAmI(r.Context())
+		if err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, user)
 	})
 	mux.HandleFunc("GET /v1/instances", func(w http.ResponseWriter, r *http.Request) {
 		list, err := svc.List(r.Context())
@@ -301,14 +373,25 @@ func main() {
 	})
 
 	fmt.Printf("tinyd listening on http://%s (db=%s runtime=%s images=%s volumes=%s)\n", addr, dbPath, rtAddr, imageRoot, volRoot)
-	fatal(http.ListenAndServe(addr, mux))
+	fatal(http.ListenAndServe(addr, authSvc.Middleware(mux)))
 }
 
 func statusFor(err error) int {
-	if err != nil && strings.Contains(err.Error(), "not found") {
-		return http.StatusNotFound
+	if err == nil {
+		return http.StatusInternalServerError
 	}
-	return http.StatusInternalServerError
+	switch {
+	case errors.Is(err, auth.ErrUnauthorized), errors.Is(err, auth.ErrInvalidCreds):
+		return http.StatusUnauthorized
+	case errors.Is(err, auth.ErrForbidden):
+		return http.StatusForbidden
+	case errors.Is(err, auth.ErrConflict), strings.Contains(err.Error(), "conflict"):
+		return http.StatusConflict
+	case strings.Contains(err.Error(), "not found"):
+		return http.StatusNotFound
+	default:
+		return http.StatusInternalServerError
+	}
 }
 
 func writeJSON(w http.ResponseWriter, code int, v any) {

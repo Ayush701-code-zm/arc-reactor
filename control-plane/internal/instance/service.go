@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ayushanand/tiny-aws/control-plane/internal/auth"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/runtimeclient"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/store"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/types"
@@ -35,6 +36,10 @@ func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, 
 	if err := validateSpec(spec); err != nil {
 		return types.Instance{}, err
 	}
+	ownerID, err := auth.OwnerID(ctx)
+	if err != nil {
+		return types.Instance{}, err
+	}
 
 	var rootfs string
 	if s.Images != nil {
@@ -53,6 +58,7 @@ func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, 
 		CPU:         spec.CPU,
 		MemoryBytes: spec.MemoryBytes,
 		Status:      types.StatusPending,
+		OwnerID:     ownerID,
 	}
 
 	if err := s.Store.InsertPending(ctx, inst); err != nil {
@@ -100,12 +106,29 @@ func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, 
 }
 
 func (s *Service) List(ctx context.Context) ([]types.Instance, error) {
-	return s.Store.List(ctx)
+	ownerID, err := auth.OwnerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	all, err := s.Store.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]types.Instance, 0, len(all))
+	for _, inst := range all {
+		if inst.OwnerID == ownerID {
+			out = append(out, inst)
+		}
+	}
+	return out, nil
 }
 
 func (s *Service) Inspect(ctx context.Context, name string) (types.Instance, error) {
 	inst, err := s.Store.GetByName(ctx, name)
 	if err != nil {
+		return types.Instance{}, err
+	}
+	if err := auth.EnsureOwner(ctx, inst.OwnerID); err != nil {
 		return types.Instance{}, err
 	}
 	view, err := s.Runtime.InspectInstance(ctx, inst.ID)
@@ -122,6 +145,9 @@ func (s *Service) Inspect(ctx context.Context, name string) (types.Instance, err
 func (s *Service) Stop(ctx context.Context, name string) (types.Instance, error) {
 	inst, err := s.Store.GetByName(ctx, name)
 	if err != nil {
+		return types.Instance{}, err
+	}
+	if err := auth.EnsureOwner(ctx, inst.OwnerID); err != nil {
 		return types.Instance{}, err
 	}
 	_ = s.Store.UpdateLifecycle(ctx, inst.ID, types.StatusStopping, inst.PID, "")
@@ -153,6 +179,9 @@ func (s *Service) Start(ctx context.Context, name string) (types.Instance, error
 	if err != nil {
 		return types.Instance{}, err
 	}
+	if err := auth.EnsureOwner(ctx, inst.OwnerID); err != nil {
+		return types.Instance{}, err
+	}
 	view, err := s.Runtime.StartInstance(ctx, inst.ID)
 	if err != nil {
 		_ = s.Store.UpdateLifecycle(ctx, inst.ID, types.StatusFailed, 0, err.Error())
@@ -168,6 +197,9 @@ func (s *Service) Start(ctx context.Context, name string) (types.Instance, error
 func (s *Service) Delete(ctx context.Context, name string) error {
 	inst, err := s.Store.GetByName(ctx, name)
 	if err != nil {
+		return err
+	}
+	if err := auth.EnsureOwner(ctx, inst.OwnerID); err != nil {
 		return err
 	}
 	if s.Networks != nil {

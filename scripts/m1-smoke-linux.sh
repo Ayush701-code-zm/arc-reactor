@@ -85,6 +85,11 @@ TINY=control-plane/bin/tiny
 IMG="smoke-alpine"
 NAME="smoke-$(date +%s)"
 
+printf '== auth bootstrap + login ==\n'
+"$TINY" auth bootstrap --username admin --password adminadmin || true
+LOGIN_JSON="$("$TINY" auth login --username admin --password adminadmin)"
+export TINY_TOKEN="$(printf '%s' "$LOGIN_JSON" | python3 -c 'import sys,json; print(json.load(sys.stdin)["AccessToken"])')"
+
 printf '== image import ==\n'
 "$TINY" image import --name "$IMG" --file "$ALPINE_TGZ"
 

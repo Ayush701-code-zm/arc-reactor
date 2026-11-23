@@ -97,6 +97,11 @@ IMG="m3-alpine"
 NAME="m3-inst-$(date +%s)"
 VOL="m3-data"
 
+printf '== auth bootstrap + login ==\n'
+"$TINY" auth bootstrap --username admin --password adminadmin || true
+LOGIN_JSON="$("$TINY" auth login --username admin --password adminadmin)"
+export TINY_TOKEN="$(printf '%s' "$LOGIN_JSON" | python3 -c 'import sys,json; print(json.load(sys.stdin)["AccessToken"])')"
+
 printf '== image import ==\n'
 if [[ ! -f "$ALPINE_TGZ" ]]; then
   printf 'missing alpine archive %s\n' "$ALPINE_TGZ" >&2

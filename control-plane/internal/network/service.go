@@ -6,6 +6,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/ayushanand/tiny-aws/control-plane/internal/auth"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/runtimeclient"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/store"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/types"
@@ -30,6 +31,10 @@ func (s *Service) Create(ctx context.Context, name, cidr string) (types.Network,
 	if err != nil {
 		return types.Network{}, err
 	}
+	ownerID, err := auth.OwnerID(ctx)
+	if err != nil {
+		return types.Network{}, err
+	}
 	if _, err := s.Store.GetNetworkByName(ctx, name); err == nil {
 		return types.Network{}, fmt.Errorf("network name %q already exists", name)
 	}
@@ -41,6 +46,7 @@ func (s *Service) Create(ctx context.Context, name, cidr string) (types.Network,
 		GatewayIP:  gw.String(),
 		BridgeName: BridgeName(id),
 		Status:     types.NetworkStatusReady,
+		OwnerID:    ownerID,
 	}
 	if err := s.Store.InsertNetwork(ctx, net); err != nil {
 		return types.Network{}, err
@@ -49,16 +55,40 @@ func (s *Service) Create(ctx context.Context, name, cidr string) (types.Network,
 }
 
 func (s *Service) List(ctx context.Context) ([]types.Network, error) {
-	return s.Store.ListNetworks(ctx)
+	ownerID, err := auth.OwnerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	all, err := s.Store.ListNetworks(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]types.Network, 0, len(all))
+	for _, net := range all {
+		if net.OwnerID == ownerID {
+			out = append(out, net)
+		}
+	}
+	return out, nil
 }
 
 func (s *Service) Inspect(ctx context.Context, name string) (types.Network, error) {
-	return s.Store.GetNetworkByName(ctx, name)
+	net, err := s.Store.GetNetworkByName(ctx, name)
+	if err != nil {
+		return types.Network{}, err
+	}
+	if err := auth.EnsureOwner(ctx, net.OwnerID); err != nil {
+		return types.Network{}, err
+	}
+	return net, nil
 }
 
 func (s *Service) Delete(ctx context.Context, name string) error {
 	net, err := s.Store.GetNetworkByName(ctx, name)
 	if err != nil {
+		return err
+	}
+	if err := auth.EnsureOwner(ctx, net.OwnerID); err != nil {
 		return err
 	}
 	n, err := s.Store.CountAttachmentsByNetwork(ctx, net.ID)
@@ -76,8 +106,14 @@ func (s *Service) Attach(ctx context.Context, networkName, instanceName string) 
 	if err != nil {
 		return types.NetworkAttachment{}, err
 	}
+	if err := auth.EnsureOwner(ctx, nw.OwnerID); err != nil {
+		return types.NetworkAttachment{}, err
+	}
 	inst, err := s.Store.GetByName(ctx, instanceName)
 	if err != nil {
+		return types.NetworkAttachment{}, err
+	}
+	if err := auth.EnsureOwner(ctx, inst.OwnerID); err != nil {
 		return types.NetworkAttachment{}, err
 	}
 	if inst.Status != types.StatusRunning {
@@ -144,8 +180,14 @@ func (s *Service) Detach(ctx context.Context, networkName, instanceName string) 
 	if err != nil {
 		return err
 	}
+	if err := auth.EnsureOwner(ctx, nw.OwnerID); err != nil {
+		return err
+	}
 	inst, err := s.Store.GetByName(ctx, instanceName)
 	if err != nil {
+		return err
+	}
+	if err := auth.EnsureOwner(ctx, inst.OwnerID); err != nil {
 		return err
 	}
 	att, err := s.Store.GetAttachment(ctx, nw.ID, inst.ID)

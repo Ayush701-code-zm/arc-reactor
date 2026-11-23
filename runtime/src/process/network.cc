@@ -5,9 +5,11 @@
 #include <vector>
 
 #if defined(__linux__)
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <sched.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -23,17 +25,36 @@ namespace {
 bool ReadFirstChildPid(int32_t parent, int32_t* child, std::string* err) {
   const std::string path = "/proc/" + std::to_string(parent) + "/task/" + std::to_string(parent) + "/children";
   std::ifstream in(path);
-  if (!in) {
-    if (err) *err = "cannot read children of pid " + std::to_string(parent);
-    return false;
-  }
   int32_t pid = 0;
-  if (!(in >> pid) || pid <= 0) {
-    if (err) *err = "no netns child for pid " + std::to_string(parent);
+  if (in && (in >> pid) && pid > 0) {
+    *child = pid;
+    return true;
+  }
+  DIR* dir = opendir("/proc");
+  if (!dir) {
+    if (err) *err = "cannot scan /proc for children of pid " + std::to_string(parent);
     return false;
   }
-  *child = pid;
-  return true;
+  while (dirent* ent = readdir(dir)) {
+    if (ent->d_name[0] < '1' || ent->d_name[0] > '9') continue;
+    const int32_t cand = static_cast<int32_t>(atoi(ent->d_name));
+    if (cand <= 0) continue;
+    std::ifstream st("/proc/" + std::to_string(cand) + "/stat");
+    if (!st) continue;
+    int32_t rpid = 0;
+    std::string comm;
+    char state = 0;
+    int32_t ppid = 0;
+    st >> rpid >> comm >> state >> ppid;
+    if (ppid == parent && rpid > 0) {
+      closedir(dir);
+      *child = rpid;
+      return true;
+    }
+  }
+  closedir(dir);
+  if (err) *err = "no netns child for pid " + std::to_string(parent);
+  return false;
 }
 
 bool RunCmd(const char* bin, const std::vector<std::string>& args, std::string* err) {
@@ -56,6 +77,9 @@ bool RunCmd(const char* bin, const std::vector<std::string>& args, std::string* 
       *err = bin;
       for (const auto& a : args) *err += " " + a;
       *err += " failed";
+      if (WIFEXITED(status) && WEXITSTATUS(status) == 127) {
+        *err += " (command not found; install iproute2)";
+      }
     }
     return false;
   }

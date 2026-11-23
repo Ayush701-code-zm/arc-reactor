@@ -7,6 +7,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/ayushanand/tiny-aws/control-plane/internal/authtest"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/store"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/types"
 	_ "modernc.org/sqlite"
@@ -59,9 +60,9 @@ func (f *fakeRuntime) Close() error { return nil }
 
 func seedRunning(t *testing.T, st *store.Store, id, name string) {
 	t.Helper()
-	ctx := context.Background()
+	ctx := authtest.Ctx()
 	inst := types.Instance{
-		ID: id, Name: name, Image: "alpine", Status: types.StatusPending, CPU: 1, MemoryBytes: 64 << 20,
+		ID: id, Name: name, Image: "alpine", Status: types.StatusPending, CPU: 1, MemoryBytes: 64 << 20, OwnerID: "test-owner",
 	}
 	if err := st.InsertPending(ctx, inst); err != nil {
 		t.Fatal(err)
@@ -79,7 +80,7 @@ func TestNetworkCreateListDelete(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = st.Close() })
 	svc := &Service{Store: st, Runtime: &fakeRuntime{}}
-	ctx := context.Background()
+	ctx := authtest.Ctx()
 	net, err := svc.Create(ctx, "priv", "10.20.0.0/24")
 	if err != nil {
 		t.Fatal(err)
@@ -105,7 +106,7 @@ func TestNetworkAttachDetach(t *testing.T) {
 	t.Cleanup(func() { _ = st.Close() })
 	rt := &fakeRuntime{}
 	svc := &Service{Store: st, Runtime: rt}
-	ctx := context.Background()
+	ctx := authtest.Ctx()
 	seedRunning(t, st, "inst-1", "web")
 	if _, err := svc.Create(ctx, "priv", "10.30.0.0/24"); err != nil {
 		t.Fatal(err)
@@ -138,7 +139,7 @@ func TestNetworkAttachCompensatesOnDBFailure(t *testing.T) {
 	t.Cleanup(func() { _ = st.Close() })
 	rt := &fakeRuntime{}
 	svc := &Service{Store: st, Runtime: rt}
-	ctx := context.Background()
+	ctx := authtest.Ctx()
 	seedRunning(t, st, "inst-1", "web")
 	if _, err := svc.Create(ctx, "priv", "10.40.0.0/24"); err != nil {
 		t.Fatal(err)

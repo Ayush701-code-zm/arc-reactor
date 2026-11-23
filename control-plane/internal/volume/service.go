@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/ayushanand/tiny-aws/control-plane/internal/auth"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/runtimeclient"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/store"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/types"
@@ -50,6 +51,10 @@ func (s *Service) Create(ctx context.Context, name string, sizeBytes uint64) (ty
 	if sizeBytes == 0 {
 		return types.Volume{}, fmt.Errorf("size must be > 0")
 	}
+	ownerID, err := auth.OwnerID(ctx)
+	if err != nil {
+		return types.Volume{}, err
+	}
 	if _, err := s.Store.GetVolumeByName(ctx, name); err == nil {
 		return types.Volume{}, fmt.Errorf("volume name %q already exists", name)
 	}
@@ -82,6 +87,7 @@ func (s *Service) Create(ctx context.Context, name string, sizeBytes uint64) (ty
 		DiskPath:  disk,
 		Status:    types.VolumeStatusAvailable,
 		MountName: name,
+		OwnerID:   ownerID,
 	}
 	if err := s.Store.InsertVolume(ctx, vol); err != nil {
 		_ = os.RemoveAll(base)
@@ -91,16 +97,40 @@ func (s *Service) Create(ctx context.Context, name string, sizeBytes uint64) (ty
 }
 
 func (s *Service) List(ctx context.Context) ([]types.Volume, error) {
-	return s.Store.ListVolumes(ctx)
+	ownerID, err := auth.OwnerID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	all, err := s.Store.ListVolumes(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]types.Volume, 0, len(all))
+	for _, vol := range all {
+		if vol.OwnerID == ownerID {
+			out = append(out, vol)
+		}
+	}
+	return out, nil
 }
 
 func (s *Service) Inspect(ctx context.Context, name string) (types.Volume, error) {
-	return s.Store.GetVolumeByName(ctx, name)
+	vol, err := s.Store.GetVolumeByName(ctx, name)
+	if err != nil {
+		return types.Volume{}, err
+	}
+	if err := auth.EnsureOwner(ctx, vol.OwnerID); err != nil {
+		return types.Volume{}, err
+	}
+	return vol, nil
 }
 
 func (s *Service) Delete(ctx context.Context, name string) error {
 	vol, err := s.Store.GetVolumeByName(ctx, name)
 	if err != nil {
+		return err
+	}
+	if err := auth.EnsureOwner(ctx, vol.OwnerID); err != nil {
 		return err
 	}
 	if vol.Status == types.VolumeStatusAttached {
@@ -116,11 +146,17 @@ func (s *Service) Attach(ctx context.Context, volumeName, instanceName string) (
 	if err != nil {
 		return types.Volume{}, err
 	}
+	if err := auth.EnsureOwner(ctx, vol.OwnerID); err != nil {
+		return types.Volume{}, err
+	}
 	if vol.Status == types.VolumeStatusAttached {
 		return vol, fmt.Errorf("volume %q already attached", volumeName)
 	}
 	inst, err := s.Store.GetByName(ctx, instanceName)
 	if err != nil {
+		return types.Volume{}, err
+	}
+	if err := auth.EnsureOwner(ctx, inst.OwnerID); err != nil {
 		return types.Volume{}, err
 	}
 	if inst.Status != types.StatusRunning {
@@ -168,6 +204,9 @@ func (s *Service) DetachAllForInstance(ctx context.Context, instanceID string) e
 func (s *Service) Detach(ctx context.Context, volumeName string) (types.Volume, error) {
 	vol, err := s.Store.GetVolumeByName(ctx, volumeName)
 	if err != nil {
+		return types.Volume{}, err
+	}
+	if err := auth.EnsureOwner(ctx, vol.OwnerID); err != nil {
 		return types.Volume{}, err
 	}
 	if vol.Status != types.VolumeStatusAttached {
