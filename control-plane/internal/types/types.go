@@ -28,16 +28,40 @@ type Spec struct {
 }
 
 type Instance struct {
-	ID           string
-	Name         string
-	Image        string
-	RootfsPath   string
-	CPU          uint32
-	MemoryBytes  uint64
-	Status       Status
-	PID          int32
-	ErrorMessage string
-	OwnerID      string
+	ID            string
+	Name          string
+	Image         string
+	RootfsPath    string
+	CPU           uint32
+	MemoryBytes   uint64
+	Status        Status
+	PID           int32
+	ErrorMessage  string
+	OwnerID       string
+	NodeID        string
+	Observability *Observability `json:",omitempty"`
+}
+
+type Node struct {
+	ID                     string
+	Hostname               string
+	AllocatableCPU         uint32
+	AllocatableMemoryBytes uint64
+	AllocatedCPU           uint32
+	AllocatedMemoryBytes   uint64
+	RunningInstances       uint32
+	Connected              bool
+}
+
+type Observability struct {
+	Ebpf        bool
+	CPUUsec     uint64
+	MemoryBytes uint64
+	RxPackets   uint64
+	RxBytes     uint64
+	TxPackets   uint64
+	TxBytes     uint64
+	Error       string `json:",omitempty"`
 }
 
 type RuntimeView struct {

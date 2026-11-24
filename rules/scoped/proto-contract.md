@@ -10,12 +10,18 @@ paths:
 
 # Proto contract
 
-`proto/tiny/v1/runtime.proto` is the only wire contract. Package `tiny.v1`. Service `RuntimeService`.
+Package `tiny.v1`. Wire contracts:
+
+| Proto | Service |
+|---|---|
+| `runtime.proto` | `RuntimeService` (tinyd ↔ tinyruntimed) |
+| `node.proto` | `NodeControlService` (tinyd ↔ tinynodeagent Session stream) |
 
 Locked M1 decisions: [`docs/M1-CONTRACT.md`](../../docs/M1-CONTRACT.md).
 Locked M2 image decisions: [`docs/M2-CONTRACT.md`](../../docs/M2-CONTRACT.md).
 Locked M3 volume decisions: [`docs/M3-CONTRACT.md`](../../docs/M3-CONTRACT.md).
 Locked M4 network decisions: [`docs/M4-CONTRACT.md`](../../docs/M4-CONTRACT.md).
+Locked M8 node decisions: [`docs/M8-CONTRACT.md`](../../docs/M8-CONTRACT.md).
 
 | RPC | Use |
 |---|---|

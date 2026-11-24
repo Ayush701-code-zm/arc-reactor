@@ -1,6 +1,8 @@
 # Tiny AWS roadmap
 
-Source of truth for phases. **Now** is Phase 6 — Metadata. Later phases stay locked until you explicitly open them.
+Source of truth for **v1 phases** (0–8). **v1 is done.**
+
+Post-v1 major versions (v2–v6), phased: [`docs/VERSIONS.md`](VERSIONS.md). Do not start the next version, or the next phase inside it, until you explicitly open it.
 
 ## What Tiny AWS is
 
@@ -25,15 +27,15 @@ Hard engineering rule: no Docker-based runtime, no Kubernetes dependency, and no
 | 3 | Storage | done |
 | 4 | Networking | done |
 | 5 | IAM | done |
-| 6 | Metadata | CURRENT |
-| 7 | eBPF observability | locked later |
-| 8 | Multi-node | locked later |
+| 6 | Metadata | done |
+| 7 | eBPF observability | done |
+| 8 | Multi-node | done |
 
-## Phase gate
+## Phase gate (v1)
 
-Do not implement Phase 2+ features until Phase 1 exit criteria are met, unless the user explicitly opens the next phase.
+v1 phases 0–8 are complete. New work uses the **version gate** in [`docs/VERSIONS.md`](VERSIONS.md).
 
-If the user asks for a later-phase feature early, remind them of this gate and ask whether to stay on Milestone 1 or explicitly open that phase.
+If the user asks for a post-v1 feature early, remind them of the version gate and ask whether to stay on v1 polish or explicitly open that version (usually **v2**).
 
 ---
 
@@ -173,7 +175,7 @@ Depends on: stable control plane from Phase 1.
 
 ---
 
-## PHASE 6 — Metadata service (CURRENT FOCUS)
+## PHASE 6 — Metadata service (done)
 
 Locked contract: [`docs/M6-CONTRACT.md`](M6-CONTRACT.md)
 
@@ -187,32 +189,36 @@ Depends on: Phase 1 + enough network identity to make metadata useful.
 
 ---
 
-## PHASE 7 — Observability hooks (eBPF in C)
+## PHASE 7 — Observability hooks (eBPF in C) (done)
+
+Locked contract: [`docs/M7-CONTRACT.md`](M7-CONTRACT.md)
 
 Build:
 
-- eBPF programs only where needed
-- Specialized kernel interfaces
-- Better monitoring/visibility for runtime/node agent
+- `tinyebpf` process (C): cgroup CPU/mem samples + `cgroup/skb` maps
+- tinyd ↔ tinyebpf over Unix socket; fields on `tiny instance inspect`
+- Optional by default; `TINY_REQUIRE_EBPF=1` strict mode
 
-Depends on: working runtime. Do not start in Milestone 1.
+Depends on: working runtime.
 
 ---
 
-## PHASE 8 — Multi-node
+## PHASE 8 — Multi-node (done)
+
+Locked contract: [`docs/M8-CONTRACT.md`](M8-CONTRACT.md)
 
 Build:
 
-- Node agent on each machine
-- Capacity reporting
-- Scheduler places instances across nodes
-- Control plane remains Go; runtime remains C++ per node
+- Separate C++ `tinynodeagent` (self-register outbound to tinyd)
+- Capacity: host allocatable CPU/mem + tinyd-tracked allocated; first-fit scheduler
+- Create via agent → local `tinyruntimed` (tinyd does not multi-dial runtimes)
+- `node_id` on every instance
 
-Depends on: single-node Tiny EC2 + enough networking/storage for multi-node to matter.
+Depends on: Phases 1–7 done.
 
 ---
 
-## End state
+## v1 end state (reached)
 
 A coherent mini-cloud control plane + systems core that we can demo and explain:
 
@@ -224,3 +230,17 @@ A coherent mini-cloud control plane + systems core that we can demo and explain:
 - Ops: inspect/monitor/restart/delete as first-class behavior
 
 End goal in one line: own create → isolate → limit → network → store → auth → schedule on Linux primitives, and demo it live with `tiny`.
+
+## After v1
+
+Toward “around AWS” (not AWS parity). Phase-wise plan: [`docs/VERSIONS.md`](VERSIONS.md).
+
+| Version | Phases | Status |
+|---|---|---|
+| v2 Make multi-node real | V2.1 image on node, V2.2 agent owns ops, V2.3 two-node proof | locked |
+| v3 Cross-node network | V3.1 connect, V3.2 allow/deny | locked |
+| v4 Durable storage | V4.1 restart-safe volumes, V4.2 snapshot | locked |
+| v5 Control plane product | V5.1 authz + quotas, V5.2 audit + backup + errors | locked |
+| v6 Operator confidence (optional) | V6.1 drain + signals, V6.2 failure drills | locked |
+
+Next recommended open: **v2**, then phase **V2.1** only.

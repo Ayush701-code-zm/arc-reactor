@@ -8,9 +8,9 @@ Not a Docker runtime. Not Kubernetes. Not wrapping AWS APIs.
 
 | Now | Later | End |
 |---|---|---|
-| Phase 6 Metadata (CURRENT); 1–5 done | eBPF, multi-node | Own create → isolate → limit → network → store → auth → schedule, demoed live with `tiny` |
+| **v1 done** (Phases 0–8) | v2–v6 toward “around AWS” | Own create → isolate → limit → network → store → auth → schedule, demoed live with `tiny` |
 
-Full phases and exit criteria: [`docs/ROADMAP.md`](docs/ROADMAP.md)
+v1 phases: [`docs/ROADMAP.md`](docs/ROADMAP.md) · After v1 (phased v2–v6): [`docs/VERSIONS.md`](docs/VERSIONS.md)
 
 ## Language split
 
@@ -48,7 +48,7 @@ That rebuilds `AGENTS.md` and refreshes `.cursor/rules/`. Do not edit `AGENTS.md
 
 Ubuntu Server 24.04 LTS, GCC or Clang (C++20), CMake, Go, gRPC + Protobuf, SQLite, GoogleTest, Git/GitHub.
 
-One Linux machine first. Multi-node is later (Phase 8).
+Phase 8 adds `tinynodeagent` + first-fit scheduling. See [`docs/M8-CONTRACT.md`](docs/M8-CONTRACT.md).
 
 ## Demo (Milestone 1)
 
@@ -60,10 +60,12 @@ Need **Linux** (Ubuntu). On a Mac use Docker as a **dev host only**.
 bash scripts/dev-ubuntu-docker.sh
 # inside the container:
 bash scripts/m1-smoke-linux.sh
-# Phase 4–6:
+# Phase 4–8:
 bash scripts/m4-smoke-linux.sh
 bash scripts/m5-smoke-linux.sh
 bash scripts/m6-smoke-linux.sh
+bash scripts/m7-smoke-linux.sh
+bash scripts/m8-smoke-linux.sh
 ```
 
 That builds everything, starts `tinyruntimed` + `tinyd`, runs create → list → inspect → stop → start → delete. M4 adds network create/attach.

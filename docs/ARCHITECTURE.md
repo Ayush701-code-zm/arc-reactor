@@ -1,6 +1,6 @@
 # Tiny AWS architecture
 
-Language ownership and system shape. Phases live in [`docs/ROADMAP.md`](ROADMAP.md). Current focus is Phase 1 (Milestone 1 Tiny EC2).
+Language ownership and system shape. v1 phases: [`docs/ROADMAP.md`](ROADMAP.md). Post-v1 versions: [`docs/VERSIONS.md`](VERSIONS.md). **v1 is done.**
 
 ## What it is
 

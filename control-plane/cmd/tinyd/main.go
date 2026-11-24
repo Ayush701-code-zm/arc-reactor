@@ -11,11 +11,14 @@ import (
 	"strings"
 
 	"github.com/ayushanand/tiny-aws/control-plane/internal/auth"
+	"github.com/ayushanand/tiny-aws/control-plane/internal/ebpfclient"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/image"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/instance"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/metadata"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/network"
+	"github.com/ayushanand/tiny-aws/control-plane/internal/nodehub"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/runtimeclient"
+	"github.com/ayushanand/tiny-aws/control-plane/internal/scheduler"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/store"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/types"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/volume"
@@ -32,6 +35,7 @@ func main() {
 		dbPath = filepath.Join(home, ".tiny-aws", "tiny.db")
 	}
 	rtAddr := env("TINY_RUNTIME_ADDR", "127.0.0.1:50051")
+	nodeCtrlAddr := env("TINY_NODE_CONTROL_ADDR", "127.0.0.1:50052")
 	imageRoot := image.DefaultRoot()
 	volRoot := volume.DefaultRoot()
 
@@ -47,10 +51,26 @@ func main() {
 	}
 	defer rt.Close()
 
+	hub := nodehub.New(st)
+	if err := hub.Listen(nodeCtrlAddr); err != nil {
+		fatal(fmt.Errorf("node control listen %s: %w", nodeCtrlAddr, err))
+	}
+	go func() {
+		if err := hub.Serve(); err != nil {
+			fmt.Fprintf(os.Stderr, "tinyd node control: %v\n", err)
+		}
+	}()
+	defer hub.Stop()
+
+	sched := &scheduler.Service{Store: st, Hub: hub}
 	imgSvc := &image.Service{Store: st, ImageRoot: imageRoot}
 	volSvc := &volume.Service{Store: st, Runtime: rt, Images: imgSvc, VolRoot: volRoot}
 	netSvc := &network.Service{Store: st, Runtime: rt}
-	svc := &instance.Service{Store: st, Runtime: rt, Images: imgSvc, Volumes: volSvc, Networks: netSvc}
+	ebpf := ebpfclient.Dial()
+	svc := &instance.Service{
+		Store: st, Runtime: rt, Scheduler: sched, Nodes: hub,
+		Images: imgSvc, Volumes: volSvc, Networks: netSvc, Ebpf: ebpf,
+	}
 	authSvc := &auth.Service{Store: st}
 	metaSvc := &metadata.Service{Store: st}
 	if err := authSvc.MaybeSeed(context.Background(), os.Getenv("TINY_BOOTSTRAP_USER"), os.Getenv("TINY_BOOTSTRAP_PASSWORD")); err != nil {
@@ -61,6 +81,23 @@ func main() {
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
+	mux.HandleFunc("GET /v1/nodes", func(w http.ResponseWriter, r *http.Request) {
+		list, err := sched.List(r.Context())
+		if err != nil {
+			writeErr(w, http.StatusInternalServerError, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, list)
+	})
+	mux.HandleFunc("GET /v1/nodes/{id}", func(w http.ResponseWriter, r *http.Request) {
+		n, err := st.GetNode(r.Context(), r.PathValue("id"))
+		if err != nil {
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, n)
+	})
+
 	mux.HandleFunc("POST /v1/auth/bootstrap", func(w http.ResponseWriter, r *http.Request) {
 		var body struct {
 			Username string `json:"Username"`
@@ -400,7 +437,7 @@ func main() {
 		writeJSON(w, http.StatusOK, map[string]bool{"detached": true})
 	})
 
-	fmt.Printf("tinyd listening on http://%s (db=%s runtime=%s images=%s volumes=%s)\n", addr, dbPath, rtAddr, imageRoot, volRoot)
+	fmt.Printf("tinyd listening on http://%s (db=%s runtime=%s nodes=%s images=%s volumes=%s)\n", addr, dbPath, rtAddr, nodeCtrlAddr, imageRoot, volRoot)
 	fatal(http.ListenAndServe(addr, authSvc.Middleware(mux)))
 }
 

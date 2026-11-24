@@ -5,18 +5,35 @@ import (
 	"fmt"
 
 	"github.com/ayushanand/tiny-aws/control-plane/internal/auth"
+	"github.com/ayushanand/tiny-aws/control-plane/internal/ebpfclient"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/runtimeclient"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/store"
 	"github.com/ayushanand/tiny-aws/control-plane/internal/types"
 	"github.com/google/uuid"
 )
 
+type NodePlacer interface {
+	Place(ctx context.Context, cpu uint32, memoryBytes uint64) (nodeID string, err error)
+}
+
+type NodeRuntime interface {
+	HasConnected() bool
+	CreateInstance(ctx context.Context, nodeID string, inst types.Instance) (types.RuntimeView, error)
+	StartInstance(ctx context.Context, nodeID, id string) (types.RuntimeView, error)
+	StopInstance(ctx context.Context, nodeID, id string) (types.RuntimeView, error)
+	DeleteInstance(ctx context.Context, nodeID, id string) error
+	InspectInstance(ctx context.Context, nodeID, id string) (types.RuntimeView, error)
+}
+
 type Service struct {
-	Store    *store.Store
-	Runtime  runtimeclient.Client
-	Images   ImageResolver
-	Volumes  VolumeDetacher
-	Networks NetworkAttacher
+	Store     *store.Store
+	Runtime   runtimeclient.Client
+	Scheduler NodePlacer
+	Nodes     NodeRuntime
+	Images    ImageResolver
+	Volumes   VolumeDetacher
+	Networks  NetworkAttacher
+	Ebpf      *ebpfclient.Client
 }
 
 type ImageResolver interface {
@@ -50,6 +67,19 @@ func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, 
 		rootfs = img.RootfsPath
 	}
 
+	nodeID := "local"
+	useAgent := s.Nodes != nil && s.Nodes.HasConnected()
+	if useAgent {
+		if s.Scheduler == nil {
+			return types.Instance{}, fmt.Errorf("scheduler required when nodes are connected")
+		}
+		placed, err := s.Scheduler.Place(ctx, spec.CPU, spec.MemoryBytes)
+		if err != nil {
+			return types.Instance{}, err
+		}
+		nodeID = placed
+	}
+
 	inst := types.Instance{
 		ID:          uuid.NewString(),
 		Name:        spec.Name,
@@ -59,18 +89,25 @@ func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, 
 		MemoryBytes: spec.MemoryBytes,
 		Status:      types.StatusPending,
 		OwnerID:     ownerID,
+		NodeID:      nodeID,
 	}
 
 	if err := s.Store.InsertPending(ctx, inst); err != nil {
 		return types.Instance{}, err
 	}
 
-	view, err := s.Runtime.CreateInstance(ctx, inst)
-	if err != nil {
-		_ = s.Store.UpdateLifecycle(ctx, inst.ID, types.StatusFailed, 0, err.Error())
+	var view types.RuntimeView
+	var createErr error
+	if useAgent {
+		view, createErr = s.Nodes.CreateInstance(ctx, nodeID, inst)
+	} else {
+		view, createErr = s.Runtime.CreateInstance(ctx, inst)
+	}
+	if createErr != nil {
+		_ = s.Store.UpdateLifecycle(ctx, inst.ID, types.StatusFailed, 0, createErr.Error())
 		inst.Status = types.StatusFailed
-		inst.ErrorMessage = err.Error()
-		return inst, err
+		inst.ErrorMessage = createErr.Error()
+		return inst, createErr
 	}
 
 	status := view.Status
@@ -78,7 +115,7 @@ func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, 
 		status = types.StatusFailed
 	}
 	if err := s.Store.UpdateLifecycle(ctx, inst.ID, status, view.PID, view.ErrorMessage); err != nil {
-		if delErr := s.Runtime.DeleteInstance(ctx, inst.ID); delErr != nil {
+		if delErr := s.deleteOnNode(ctx, inst); delErr != nil {
 			msg := fmt.Sprintf("persist failed: %v; runtime cleanup failed: %v", err, delErr)
 			_ = s.Store.UpdateLifecycle(ctx, inst.ID, types.StatusFailed, view.PID, msg)
 			return types.Instance{}, fmt.Errorf("%s", msg)
@@ -95,14 +132,32 @@ func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, 
 	}
 	if spec.Network != "" && s.Networks != nil {
 		if _, err := s.Networks.Attach(ctx, spec.Network, inst.Name); err != nil {
-			_ = s.Runtime.DeleteInstance(ctx, inst.ID)
+			_ = s.deleteOnNode(ctx, inst)
 			_ = s.Store.UpdateLifecycle(ctx, inst.ID, types.StatusFailed, 0, err.Error())
 			inst.Status = types.StatusFailed
 			inst.ErrorMessage = err.Error()
 			return inst, fmt.Errorf("network attach after create: %w", err)
 		}
 	}
+	if err := s.watchEbpf(inst); err != nil {
+		_ = s.deleteOnNode(ctx, inst)
+		_ = s.Store.UpdateLifecycle(ctx, inst.ID, types.StatusFailed, 0, err.Error())
+		inst.Status = types.StatusFailed
+		inst.ErrorMessage = err.Error()
+		return inst, err
+	}
 	return inst, nil
+}
+
+func (s *Service) deleteOnNode(ctx context.Context, inst types.Instance) error {
+	if s.Nodes != nil && s.Nodes.HasConnected() && inst.NodeID != "" && inst.NodeID != "local" {
+		return s.Nodes.DeleteInstance(ctx, inst.NodeID, inst.ID)
+	}
+	return s.Runtime.DeleteInstance(ctx, inst.ID)
+}
+
+func (s *Service) viaAgent(inst types.Instance) bool {
+	return s.Nodes != nil && s.Nodes.HasConnected() && inst.NodeID != "" && inst.NodeID != "local"
 }
 
 func (s *Service) List(ctx context.Context) ([]types.Instance, error) {
@@ -131,14 +186,21 @@ func (s *Service) Inspect(ctx context.Context, name string) (types.Instance, err
 	if err := auth.EnsureOwner(ctx, inst.OwnerID); err != nil {
 		return types.Instance{}, err
 	}
-	view, err := s.Runtime.InspectInstance(ctx, inst.ID)
-	if err != nil {
+	var view types.RuntimeView
+	var err2 error
+	if s.viaAgent(inst) {
+		view, err2 = s.Nodes.InspectInstance(ctx, inst.NodeID, inst.ID)
+	} else {
+		view, err2 = s.Runtime.InspectInstance(ctx, inst.ID)
+	}
+	if err2 != nil {
 		return inst, nil
 	}
 	_ = s.Store.UpdateLifecycle(ctx, inst.ID, view.Status, view.PID, view.ErrorMessage)
 	inst.Status = view.Status
 	inst.PID = view.PID
 	inst.ErrorMessage = view.ErrorMessage
+	inst.Observability = s.sampleEbpf(inst.ID)
 	return inst, nil
 }
 
@@ -151,7 +213,12 @@ func (s *Service) Stop(ctx context.Context, name string) (types.Instance, error)
 		return types.Instance{}, err
 	}
 	_ = s.Store.UpdateLifecycle(ctx, inst.ID, types.StatusStopping, inst.PID, "")
-	view, err := s.Runtime.StopInstance(ctx, inst.ID)
+	var view types.RuntimeView
+	if s.viaAgent(inst) {
+		view, err = s.Nodes.StopInstance(ctx, inst.NodeID, inst.ID)
+	} else {
+		view, err = s.Runtime.StopInstance(ctx, inst.ID)
+	}
 	if err != nil {
 		_ = s.Store.UpdateLifecycle(ctx, inst.ID, types.StatusFailed, inst.PID, err.Error())
 		return types.Instance{}, err
@@ -182,7 +249,12 @@ func (s *Service) Start(ctx context.Context, name string) (types.Instance, error
 	if err := auth.EnsureOwner(ctx, inst.OwnerID); err != nil {
 		return types.Instance{}, err
 	}
-	view, err := s.Runtime.StartInstance(ctx, inst.ID)
+	var view types.RuntimeView
+	if s.viaAgent(inst) {
+		view, err = s.Nodes.StartInstance(ctx, inst.NodeID, inst.ID)
+	} else {
+		view, err = s.Runtime.StartInstance(ctx, inst.ID)
+	}
 	if err != nil {
 		_ = s.Store.UpdateLifecycle(ctx, inst.ID, types.StatusFailed, 0, err.Error())
 		return types.Instance{}, err
@@ -202,6 +274,9 @@ func (s *Service) Delete(ctx context.Context, name string) error {
 	if err := auth.EnsureOwner(ctx, inst.OwnerID); err != nil {
 		return err
 	}
+	if s.Ebpf != nil {
+		_ = s.Ebpf.Unwatch(inst.ID)
+	}
 	if s.Networks != nil {
 		if err := s.Networks.DetachAllForInstance(ctx, inst.ID); err != nil {
 			return err
@@ -212,7 +287,7 @@ func (s *Service) Delete(ctx context.Context, name string) error {
 			return err
 		}
 	}
-	if err := s.Runtime.DeleteInstance(ctx, inst.ID); err != nil {
+	if err := s.deleteOnNode(ctx, inst); err != nil {
 		_ = s.Store.UpdateLifecycle(ctx, inst.ID, types.StatusFailed, inst.PID, err.Error())
 		return fmt.Errorf("runtime delete not confirmed: %w", err)
 	}
@@ -233,4 +308,44 @@ func validateSpec(spec types.Spec) error {
 		return fmt.Errorf("memory must be > 0")
 	}
 	return nil
+}
+
+func (s *Service) watchEbpf(inst types.Instance) error {
+	if s.Ebpf == nil {
+		if ebpfclient.Require() {
+			return fmt.Errorf("TINY_REQUIRE_EBPF=1 but ebpf client is nil")
+		}
+		return nil
+	}
+	sample, err := s.Ebpf.Watch(inst.ID, inst.PID)
+	if err != nil {
+		if ebpfclient.Require() {
+			return fmt.Errorf("ebpf watch required: %w", err)
+		}
+		return nil
+	}
+	if ebpfclient.Require() && !sample.Ebpf {
+		return fmt.Errorf("ebpf watch required but skb attach skipped: %s", sample.Error)
+	}
+	return nil
+}
+
+func (s *Service) sampleEbpf(instanceID string) *types.Observability {
+	if s.Ebpf == nil {
+		return nil
+	}
+	sample, err := s.Ebpf.Sample(instanceID)
+	if err != nil {
+		return &types.Observability{Error: err.Error()}
+	}
+	return &types.Observability{
+		Ebpf:        sample.Ebpf,
+		CPUUsec:     sample.CPUUsec,
+		MemoryBytes: sample.MemoryBytes,
+		RxPackets:   sample.RxPackets,
+		RxBytes:     sample.RxBytes,
+		TxPackets:   sample.TxPackets,
+		TxBytes:     sample.TxBytes,
+		Error:       sample.Error,
+	}
 }

@@ -1,0 +1,8 @@
+/src/observability/tinyebpf/build-linux/CMakeFiles/tinyebpf.dir
+/src/observability/tinyebpf/build-linux/CMakeFiles/tinyebpf_bpf.dir
+/src/observability/tinyebpf/build-linux/CMakeFiles/edit_cache.dir
+/src/observability/tinyebpf/build-linux/CMakeFiles/rebuild_cache.dir
+/src/observability/tinyebpf/build-linux/CMakeFiles/list_install_components.dir
+/src/observability/tinyebpf/build-linux/CMakeFiles/install.dir
+/src/observability/tinyebpf/build-linux/CMakeFiles/install/local.dir
+/src/observability/tinyebpf/build-linux/CMakeFiles/install/strip.dir

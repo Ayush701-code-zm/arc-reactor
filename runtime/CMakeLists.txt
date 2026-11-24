@@ -26,34 +26,41 @@ pkg_check_modules(GRPCPP REQUIRED IMPORTED_TARGET grpc++)
 find_program(GRPC_CPP_PLUGIN grpc_cpp_plugin REQUIRED)
 
 set(PROTO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../proto")
-set(PROTO_FILE "${PROTO_ROOT}/tiny/v1/runtime.proto")
+set(RUNTIME_PROTO "${PROTO_ROOT}/tiny/v1/runtime.proto")
+set(NODE_PROTO "${PROTO_ROOT}/tiny/v1/node.proto")
 set(GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/gen")
 file(MAKE_DIRECTORY "${GEN_DIR}")
 
-set(PB_CC "${GEN_DIR}/tiny/v1/runtime.pb.cc")
-set(PB_H "${GEN_DIR}/tiny/v1/runtime.pb.h")
-set(GRPC_CC "${GEN_DIR}/tiny/v1/runtime.grpc.pb.cc")
-set(GRPC_H "${GEN_DIR}/tiny/v1/runtime.grpc.pb.h")
+set(RUNTIME_PB_CC "${GEN_DIR}/tiny/v1/runtime.pb.cc")
+set(RUNTIME_PB_H "${GEN_DIR}/tiny/v1/runtime.pb.h")
+set(RUNTIME_GRPC_CC "${GEN_DIR}/tiny/v1/runtime.grpc.pb.cc")
+set(RUNTIME_GRPC_H "${GEN_DIR}/tiny/v1/runtime.grpc.pb.h")
+set(NODE_PB_CC "${GEN_DIR}/tiny/v1/node.pb.cc")
+set(NODE_PB_H "${GEN_DIR}/tiny/v1/node.pb.h")
+set(NODE_GRPC_CC "${GEN_DIR}/tiny/v1/node.grpc.pb.cc")
+set(NODE_GRPC_H "${GEN_DIR}/tiny/v1/node.grpc.pb.h")
 
 add_custom_command(
-  OUTPUT "${PB_CC}" "${PB_H}" "${GRPC_CC}" "${GRPC_H}"
+  OUTPUT "${RUNTIME_PB_CC}" "${RUNTIME_PB_H}" "${RUNTIME_GRPC_CC}" "${RUNTIME_GRPC_H}"
+         "${NODE_PB_CC}" "${NODE_PB_H}" "${NODE_GRPC_CC}" "${NODE_GRPC_H}"
   COMMAND ${CMAKE_COMMAND} -E make_directory "${GEN_DIR}/tiny/v1"
   COMMAND ${Protobuf_PROTOC_EXECUTABLE}
     --proto_path=${PROTO_ROOT}
     --cpp_out=${GEN_DIR}
     --grpc_out=${GEN_DIR}
     --plugin=protoc-gen-grpc=${GRPC_CPP_PLUGIN}
-    ${PROTO_FILE}
-  DEPENDS "${PROTO_FILE}"
-  COMMENT "Generating C++ gRPC stubs from runtime.proto"
+    ${RUNTIME_PROTO}
+    ${NODE_PROTO}
+  DEPENDS "${RUNTIME_PROTO}" "${NODE_PROTO}"
+  COMMENT "Generating C++ gRPC stubs from runtime.proto and node.proto"
   VERBATIM
 )
 
 add_executable(tinyruntimed
   src/main.cc
   src/grpc_server.cc
-  "${PB_CC}"
-  "${GRPC_CC}"
+  "${RUNTIME_PB_CC}"
+  "${RUNTIME_GRPC_CC}"
 )
 target_include_directories(tinyruntimed PRIVATE
   ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -65,3 +72,20 @@ target_link_libraries(tinyruntimed PRIVATE
   protobuf::libprotobuf
   PkgConfig::GRPCPP
 )
+
+add_executable(tinynodeagent
+  src/node_agent.cc
+  "${RUNTIME_PB_CC}"
+  "${RUNTIME_GRPC_CC}"
+  "${NODE_PB_CC}"
+  "${NODE_GRPC_CC}"
+)
+target_include_directories(tinynodeagent PRIVATE
+  ${GEN_DIR}
+  ${Protobuf_INCLUDE_DIRS}
+)
+target_link_libraries(tinynodeagent PRIVATE
+  protobuf::libprotobuf
+  PkgConfig::GRPCPP
+)
+target_compile_features(tinynodeagent PRIVATE cxx_std_20)

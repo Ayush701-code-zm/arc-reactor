@@ -45,11 +45,11 @@ Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARC
 
 # Phase gate
 
-Current phase: **Phase 6 — Metadata** (Phases 1–5 complete).
+**v1 is done** (Phases 0–8). Post-v1 versions and phases: [`docs/VERSIONS.md`](../../docs/VERSIONS.md).
 
-Do not implement Phase 7+ until Phase 6 exit criteria are met, unless the user explicitly opens the next phase.
+Do not implement v2+ until the user explicitly opens that version, a contract exists, and work stays on the current phase.
 
-If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 6 or explicitly open that phase.
+If the user asks for a later-version feature early, remind them of the version and phase gate and ask whether to stay on v1 polish or explicitly open that version.
 
 # Build tools
 

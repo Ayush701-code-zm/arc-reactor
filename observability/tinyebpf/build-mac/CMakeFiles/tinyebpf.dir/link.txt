@@ -1,0 +1,1 @@
+/usr/bin/cc -Wl,-search_paths_first -Wl,-headerpad_max_install_names CMakeFiles/tinyebpf.dir/src/main.c.o CMakeFiles/tinyebpf.dir/src/cgroup_stats.c.o CMakeFiles/tinyebpf.dir/src/ebpf_attach.c.o -o tinyebpf

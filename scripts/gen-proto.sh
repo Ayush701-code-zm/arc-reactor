@@ -28,7 +28,8 @@ mkdir -p "$ROOT/control-plane"
     --go_opt=module=github.com/ayushanand/tiny-aws/control-plane \
     --go-grpc_out=control-plane \
     --go-grpc_opt=module=github.com/ayushanand/tiny-aws/control-plane \
-    proto/tiny/v1/runtime.proto
+    proto/tiny/v1/runtime.proto \
+    proto/tiny/v1/node.proto
 )
 
-printf 'Wrote control-plane/gen from proto/tiny/v1/runtime.proto\n'
+printf 'Wrote control-plane/gen from proto/tiny/v1/*.proto\n'

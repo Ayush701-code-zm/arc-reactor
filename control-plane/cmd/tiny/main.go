@@ -40,6 +40,27 @@ func main() {
 		runVolume(client, base, os.Args[2:])
 	case "network":
 		runNetwork(client, base, os.Args[2:])
+	case "node":
+		runNode(client, base, os.Args[2:])
+	default:
+		usage()
+		os.Exit(2)
+	}
+}
+
+func runNode(client *http.Client, base string, args []string) {
+	if len(args) < 1 {
+		usage()
+		os.Exit(2)
+	}
+	switch args[0] {
+	case "list":
+		var list []types.Node
+		callJSON(client, http.MethodGet, base+"/v1/nodes", nil, &list, "node list")
+	case "inspect":
+		id := mustName(args[1:])
+		var n types.Node
+		callJSON(client, http.MethodGet, base+"/v1/nodes/"+url.PathEscape(id), nil, &n, "node inspect")
 	default:
 		usage()
 		os.Exit(2)
@@ -673,6 +694,8 @@ tiny network inspect NAME
 tiny network delete NAME
 tiny network attach --network NAME --instance INST
 tiny network detach --network NAME --instance INST
+tiny node list
+tiny node inspect NODE_ID
 
 Env: TINY_API_ADDR (default 127.0.0.1:8080), TINY_TOKEN (Bearer access token).
 `)

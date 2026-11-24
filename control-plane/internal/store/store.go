@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS network_attachments (
 	}
 	_, _ = s.db.Exec(`ALTER TABLE instances ADD COLUMN rootfs_path TEXT NOT NULL DEFAULT ''`)
 	_, _ = s.db.Exec(`ALTER TABLE instances ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''`)
+	_, _ = s.db.Exec(`ALTER TABLE instances ADD COLUMN node_id TEXT NOT NULL DEFAULT ''`)
 	_, _ = s.db.Exec(`ALTER TABLE images ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''`)
 	_, _ = s.db.Exec(`ALTER TABLE volumes ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''`)
 	_, _ = s.db.Exec(`ALTER TABLE networks ADD COLUMN owner_id TEXT NOT NULL DEFAULT ''`)
@@ -113,6 +114,15 @@ CREATE TABLE IF NOT EXISTS refresh_sessions (
   token_hash TEXT PRIMARY KEY,
   user_id TEXT NOT NULL,
   expires_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS nodes (
+  id TEXT PRIMARY KEY,
+  hostname TEXT NOT NULL DEFAULT '',
+  allocatable_cpu INTEGER NOT NULL DEFAULT 0,
+  allocatable_memory_bytes INTEGER NOT NULL DEFAULT 0,
+  running_instances INTEGER NOT NULL DEFAULT 0,
+  last_heartbeat TEXT NOT NULL DEFAULT '',
+  connected INTEGER NOT NULL DEFAULT 0
 );`)
 	return err
 }
@@ -431,9 +441,9 @@ func (s *Store) CountInstancesByImage(ctx context.Context, imageName string) (in
 
 func (s *Store) InsertPending(ctx context.Context, inst types.Instance) error {
 	_, err := s.db.ExecContext(ctx, `
-INSERT INTO instances (id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message, owner_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		inst.ID, inst.Name, inst.Image, inst.RootfsPath, inst.CPU, inst.MemoryBytes, string(inst.Status), inst.PID, inst.ErrorMessage, inst.OwnerID)
+INSERT INTO instances (id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message, owner_id, node_id)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		inst.ID, inst.Name, inst.Image, inst.RootfsPath, inst.CPU, inst.MemoryBytes, string(inst.Status), inst.PID, inst.ErrorMessage, inst.OwnerID, inst.NodeID)
 	if err != nil {
 		return fmt.Errorf("insert instance: %w", err)
 	}
@@ -460,16 +470,16 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 }
 
 func (s *Store) GetByName(ctx context.Context, name string) (types.Instance, error) {
-	return s.scanOne(ctx, `SELECT id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message, owner_id FROM instances WHERE name = ?`, name)
+	return s.scanOne(ctx, `SELECT id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message, owner_id, node_id FROM instances WHERE name = ?`, name)
 }
 
 func (s *Store) GetByID(ctx context.Context, id string) (types.Instance, error) {
-	return s.scanOne(ctx, `SELECT id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message, owner_id FROM instances WHERE id = ?`, id)
+	return s.scanOne(ctx, `SELECT id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message, owner_id, node_id FROM instances WHERE id = ?`, id)
 }
 
 func (s *Store) List(ctx context.Context) ([]types.Instance, error) {
 	rows, err := s.db.QueryContext(ctx, `
-SELECT id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message, owner_id FROM instances ORDER BY name`)
+SELECT id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_message, owner_id, node_id FROM instances ORDER BY name`)
 	if err != nil {
 		return nil, err
 	}
@@ -486,11 +496,24 @@ SELECT id, name, image, rootfs_path, cpu, memory_bytes, status, pid, error_messa
 	return out, rows.Err()
 }
 
+func (s *Store) AllocatedOnNode(ctx context.Context, nodeID string) (cpu uint32, mem uint64, err error) {
+	row := s.db.QueryRowContext(ctx, `
+SELECT COALESCE(SUM(cpu), 0), COALESCE(SUM(memory_bytes), 0)
+FROM instances
+WHERE node_id = ? AND status IN ('PENDING', 'RUNNING', 'STOPPING')`, nodeID)
+	var c int64
+	var m int64
+	if err := row.Scan(&c, &m); err != nil {
+		return 0, 0, err
+	}
+	return uint32(c), uint64(m), nil
+}
+
 func (s *Store) scanOne(ctx context.Context, q string, arg any) (types.Instance, error) {
 	row := s.db.QueryRowContext(ctx, q, arg)
 	var inst types.Instance
 	var status string
-	err := row.Scan(&inst.ID, &inst.Name, &inst.Image, &inst.RootfsPath, &inst.CPU, &inst.MemoryBytes, &status, &inst.PID, &inst.ErrorMessage, &inst.OwnerID)
+	err := row.Scan(&inst.ID, &inst.Name, &inst.Image, &inst.RootfsPath, &inst.CPU, &inst.MemoryBytes, &status, &inst.PID, &inst.ErrorMessage, &inst.OwnerID, &inst.NodeID)
 	if err == sql.ErrNoRows {
 		return types.Instance{}, fmt.Errorf("instance not found")
 	}
@@ -508,7 +531,7 @@ type rowScanner interface {
 func scanRow(r rowScanner) (types.Instance, error) {
 	var inst types.Instance
 	var status string
-	if err := r.Scan(&inst.ID, &inst.Name, &inst.Image, &inst.RootfsPath, &inst.CPU, &inst.MemoryBytes, &status, &inst.PID, &inst.ErrorMessage, &inst.OwnerID); err != nil {
+	if err := r.Scan(&inst.ID, &inst.Name, &inst.Image, &inst.RootfsPath, &inst.CPU, &inst.MemoryBytes, &status, &inst.PID, &inst.ErrorMessage, &inst.OwnerID, &inst.NodeID); err != nil {
 		return types.Instance{}, err
 	}
 	inst.Status = types.Status(status)

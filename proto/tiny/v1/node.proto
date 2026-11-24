@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package tiny.v1;
+
+option go_package = "github.com/ayushanand/tiny-aws/control-plane/gen/tiny/v1;tinyv1";
+
+import "tiny/v1/runtime.proto";
+
+// NodeControlService is served by tinyd. tinynodeagent dials outbound and opens Session.
+service NodeControlService {
+  rpc Session(stream AgentToControl) returns (stream ControlToAgent);
+}
+
+message AgentToControl {
+  oneof body {
+    RegisterRequest register = 1;
+    HeartbeatRequest heartbeat = 2;
+    RuntimeOpResult op_result = 3;
+  }
+}
+
+message ControlToAgent {
+  oneof body {
+    RegisterAck register_ack = 1;
+    RuntimeOpRequest op = 2;
+  }
+}
+
+message RegisterRequest {
+  string node_id = 1;
+  string hostname = 2;
+  uint32 allocatable_cpu = 3;
+  uint64 allocatable_memory_bytes = 4;
+}
+
+message RegisterAck {
+  string node_id = 1;
+  string error_message = 2;
+}
+
+message HeartbeatRequest {
+  string node_id = 1;
+  uint32 allocatable_cpu = 2;
+  uint64 allocatable_memory_bytes = 3;
+  uint32 running_instances = 4;
+}
+
+message RuntimeOpRequest {
+  string request_id = 1;
+  oneof op {
+    CreateInstanceRequest create = 2;
+    StartInstanceRequest start = 3;
+    StopInstanceRequest stop = 4;
+    DeleteInstanceRequest delete = 5;
+    InspectInstanceRequest inspect = 6;
+  }
+}
+
+message RuntimeOpResult {
+  string request_id = 1;
+  string id = 2;
+  InstanceStatus status = 3;
+  int32 pid = 4;
+  string error_message = 5;
+}

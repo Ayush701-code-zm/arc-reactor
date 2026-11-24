@@ -10,12 +10,13 @@ These rules are hard. If a tool default conflicts with them, follow these rules 
 
 Tiny AWS is a from-scratch mini cloud on Linux primitives. We implement the mechanisms ourselves.
 
-Current phase: **Phase 6 — Metadata**. Phases 1–5 are done. Source of truth: [`docs/ROADMAP.md`](../../docs/ROADMAP.md).
+**v1 is done** (Phases 0–8). Post-v1 versions are phased in [`docs/VERSIONS.md`](../../docs/VERSIONS.md). Phase history: [`docs/ROADMAP.md`](../../docs/ROADMAP.md). Do not start v2+ until the user explicitly opens that version, then one phase inside it.
 
 | Path | Contents |
 |---|---|
 | `control-plane/` | Go module. `cmd/tiny`, `cmd/tinyd`, `internal/` |
 | `runtime/` | C++20 CMake project. `include/`, `src/`, `tests/` |
+| `observability/tinyebpf/` | C tinyebpf daemon (BPF + UDS) |
 | `proto/tiny/v1/` | gRPC contract between Go and C++ |
 | `rules/always/` | Always-on rules. Source of truth |
 | `rules/scoped/` | Path-scoped rules. Not copied into `AGENTS.md` |
@@ -42,10 +43,10 @@ Current phase: **Phase 6 — Metadata**. Phases 1–5 are done. Source of truth:
 # Working rules
 
 - Edit `rules/always/` and `rules/scoped/`, then run `scripts/sync-agent-rules.sh`. Do not edit `AGENTS.md` by hand.
-- Stay on Phase 6 until its exit criteria are met. Do not jump to Phase 7+ early. See `docs/ROADMAP.md` and `docs/M6-CONTRACT.md`.
-- Phases 1–5 remain done and supported; do not rip out instance/image/volume/network/IAM while building metadata.
-- If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 6 or explicitly open that phase.
-- Go changes stay in `control-plane/`. C++ changes stay in `runtime/`. A contract change starts in `proto/tiny/v1/`.
+- v1 (Phases 0–8) remains done and supported. See `docs/ROADMAP.md` and `docs/M8-CONTRACT.md`.
+- Post-v1 work follows `docs/VERSIONS.md`. Open a **version** explicitly, then open **one phase** inside it. Do not jump to the next phase or version early.
+- If the user asks for a later-version feature early, remind them of the version and phase gate and ask whether to stay on v1 polish or explicitly open that version and its first locked phase.
+- Go changes stay in `control-plane/`. C++ changes stay in `runtime/`. eBPF C stays in `observability/`. A contract change starts in `proto/tiny/v1/`.
 - Keep the tree compilable. A stub with a TODO is the right placeholder.
 - Build and test with the commands in `README.md`.
 - Before non-trivial builds, ask design and technical questions. See `thinking-questions.md`.
@@ -59,13 +60,13 @@ Shared contracts, loaded when their paths are open:
 | `rules/scoped/cpp-runtime.md` | C++20 runtime, processes, limits |
 | `rules/scoped/proto-contract.md` | `proto/tiny/v1` gRPC contract |
 
-# Phase 6 lock (current)
+# Version lock (current)
 
-In scope: tinyd metadata JSON + AWS-style paths, owner Bearer access, RUNNING-only, network fields from applied attachments, bind via host veth (`/v1/metadata/by-veth/{veth}`).
+v1 complete. Default: v1 polish only (bugs, docs, smoke clarity) unless the user opens a version.
 
-Out of Phase 6: in-guest 169.254.169.254, C++ DNAT/forward, IMDSv2, user-data, eBPF, multi-node.
+Next planned open: **v2**, phase **V2.1 Image on node** only. Later v2 phases are V2.2 agent-owned ops, then V2.3 two-node proof. See `docs/VERSIONS.md`.
 
-Do not jump to Phase 7+ unless the user explicitly opens that phase.
+Out of v2 unless the contract says otherwise: overlay/VXLAN product, fancy IAM, snapshots, HA tinyd.
 
 
 # What Tiny AWS is
@@ -109,11 +110,11 @@ Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARC
 
 # Phase gate
 
-Current phase: **Phase 6 — Metadata** (Phases 1–5 complete).
+**v1 is done** (Phases 0–8). Post-v1 versions and phases: [`docs/VERSIONS.md`](../../docs/VERSIONS.md).
 
-Do not implement Phase 7+ until Phase 6 exit criteria are met, unless the user explicitly opens the next phase.
+Do not implement v2+ until the user explicitly opens that version, a contract exists, and work stays on the current phase.
 
-If the user asks for a later-phase feature early, remind them of the roadmap gate and ask whether to stay on Phase 6 or explicitly open that phase.
+If the user asks for a later-version feature early, remind them of the version and phase gate and ask whether to stay on v1 polish or explicitly open that version.
 
 # Build tools
 
