@@ -60,12 +60,16 @@ Do not dump raw scanner noise. Convert each finding into:
 
 | Piece | Status |
 |---|---|
-| `sonar-project.properties` | Present |
+| `sonar-project.properties` | Present (v1.0.0; sources include `observability/`) |
 | `.github/workflows/sonar.yml` | Present (runs when `SONAR_TOKEN` is set) |
-| `.cursor/mcp.json` | Present (Sonar MCP + `vortex` toolset; needs `SONARQUBE_TOKEN` env + Docker) |
-| `docs/VERIFICATION.md` | Setup steps for CI Sonar and Cursor MCP |
+| `.cursor/mcp.json` | Present; toolsets `projects,vortex,issues,quality-gates,measures` |
+| `scripts/check-sonar-mcp.sh` | Local readiness check (token + Docker + config) |
+| `docs/VERIFICATION.md` | Setup steps for CI Sonar and Cursor MCP / Vortex |
 | SonarCloud user token | User must export `SONARQUBE_TOKEN` (user token, not project token) |
 | Vortex subscription | Requires SonarCloud Team annual / Enterprise with Vortex; otherwise MCP may only expose non-Vortex tools |
 
-If MCP/Vortex is not connected, say what is missing in one line, then use the compiler and tests as early feedback.
+When the Sonar MCP namespace is connected, prefer its issue / quality-gate / Vortex tools after meaningful edits, then still run compiler and tests.
+
+If MCP/Vortex is not connected, say what is missing in one line, then use the compiler and tests as early feedback. Point the user at `bash scripts/check-sonar-mcp.sh` and `docs/VERIFICATION.md`.
+
 Do not block coding on a live Vortex session unless the user asks to finish that setup.

@@ -64,7 +64,9 @@ bool BringUpLoopback(std::string* err) {
     return false;
   }
   struct ifreq ifr {};
-  strncpy(ifr.ifr_name, "lo", IFNAMSIZ - 1);
+  static constexpr char kLo[] = "lo";
+  static_assert(sizeof(kLo) <= IFNAMSIZ, "lo name fits ifreq");
+  memcpy(ifr.ifr_name, kLo, sizeof(kLo));
   if (ioctl(fd, SIOCGIFFLAGS, &ifr) != 0) {
     close(fd);
     if (err) *err = std::string("SIOCGIFFLAGS lo: ") + strerror(errno);

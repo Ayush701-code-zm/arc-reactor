@@ -38,7 +38,7 @@ bool WriteFile(const std::string& path, const std::string& data, std::string* er
 
 bool MkdirIfMissing(const std::string& path, std::string* err) {
   if (Exists(path)) return true;
-  if (mkdir(path.c_str(), 0755) != 0) {
+  if (mkdir(path.c_str(), 0750) != 0) {
     if (err) *err = "mkdir " + path + " failed: " + std::strerror(errno);
     return false;
   }
@@ -80,10 +80,11 @@ std::string JoinCgroup(const std::string& rel) {
 }
 
 std::string ParentDir(const std::string& path) {
+  constexpr std::size_t kFsRootLen = sizeof("/sys/fs/cgroup") - 1;
   if (path == kFsRoot) return path;
   const auto pos = path.find_last_of('/');
   if (pos == std::string::npos || pos == 0) return kFsRoot;
-  if (pos <= std::strlen(kFsRoot)) return kFsRoot;
+  if (pos <= kFsRootLen) return kFsRoot;
   return path.substr(0, pos);
 }
 

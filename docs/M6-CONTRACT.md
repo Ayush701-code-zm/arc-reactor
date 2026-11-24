@@ -1,14 +1,14 @@
 # Milestone 6 — locked metadata contract
 
-Phase 6 is open. Phases 1–5 stay complete. Do not change these locks without an explicit new decision.
+Phase 6 is done (v1). Do not change these locks without an explicit new decision. Post-v1: [`docs/VERSIONS.md`](VERSIONS.md).
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
-| 1–5 | done |
-| 6 Metadata | CURRENT |
-| 7+ | locked later |
+| 1–6 | done |
+| 7–8 | done (v1) |
+| Post-v1 | [`docs/VERSIONS.md`](VERSIONS.md) |
 
 ## Ownership
 

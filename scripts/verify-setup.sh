@@ -9,9 +9,15 @@ fail=0
 ok() { printf 'ok %s\n' "$1"; }
 bad() { printf 'FAIL %s\n' "$1"; fail=1; }
 
-for f in hooks/block-dangerous.sh hooks/self-check.sh scripts/sync-agent-rules.sh .githooks/pre-push scripts/gen-proto.sh; do
+for f in hooks/block-dangerous.sh hooks/self-check.sh scripts/sync-agent-rules.sh .githooks/pre-push scripts/gen-proto.sh scripts/check-sonar-mcp.sh; do
   if [[ -x "$f" ]]; then ok "exec $f"; else bad "exec $f"; fi
 done
+
+if [[ -f .cursor/mcp.json ]] && grep -q 'vortex' .cursor/mcp.json; then
+  ok "mcp vortex toolset"
+else
+  bad "mcp vortex toolset"
+fi
 
 if [[ -f .git/config ]] && grep -q 'hooksPath = .githooks' .git/config; then
   ok "hooksPath"

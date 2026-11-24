@@ -1,6 +1,6 @@
 # Milestone 2 — locked image contract
 
-Phase 2 is open. Phase 1 Tiny EC2 stays complete. Do not change these locks without an explicit new decision.
+Phase 2 is done (v1). Do not change these locks without an explicit new decision. Post-v1: [`docs/VERSIONS.md`](VERSIONS.md).
 
 ## Phase status
 
@@ -8,8 +8,8 @@ Phase 2 is open. Phase 1 Tiny EC2 stays complete. Do not change these locks with
 |---|---|
 | 1 Tiny EC2 | done |
 | 2 Images | done |
-| 3 Storage | CURRENT |
-| 4+ | locked later |
+| 3–8 | done (v1) |
+| Post-v1 | [`docs/VERSIONS.md`](VERSIONS.md) |
 
 ## Artifact
 

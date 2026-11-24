@@ -22,10 +22,13 @@ Tiny AWS is a from-scratch mini cloud on Linux primitives. We implement the mech
 | `rules/scoped/` | Path-scoped rules. Not copied into `AGENTS.md` |
 | `.cursor/rules/` | Symlinks to the rules. Do not edit |
 | `hooks/` | Safety hook for agent shell commands |
-| `docs/ROADMAP.md` | Phase checklist and destination |
+| `docs/ROADMAP.md` | v1 phase checklist |
+| `docs/VERSIONS.md` | Post-v1 versions and phases |
+| `docs/VERIFICATION.md` | Sonar + Vortex setup |
 | `docs/ARCHITECTURE.md` | Language ownership and system shape |
-| `docs/MILESTONE-1.md` | Current focus detail |
+| `docs/MILESTONE-1.md` | Historical M1 detail (v1 done) |
 | `scripts/sync-agent-rules.sh` | Rebuilds `AGENTS.md` and refreshes Cursor symlinks |
+| `scripts/check-sonar-mcp.sh` | Sonar MCP / Vortex readiness check |
 
 # Always-on rules
 
@@ -64,7 +67,7 @@ Shared contracts, loaded when their paths are open:
 
 v1 complete. Default: v1 polish only (bugs, docs, smoke clarity) unless the user opens a version.
 
-Next planned open: **v2**, phase **V2.1 Image on node** only. Later v2 phases are V2.2 agent-owned ops, then V2.3 two-node proof. See `docs/VERSIONS.md`.
+Opened: **v2**, current phase **V2.1 Image on node** only. Do not start V2.2 or V2.3 until exit criteria for the current phase are met. See `docs/VERSIONS.md` and `docs/V2-CONTRACT.md` (when written).
 
 Out of v2 unless the contract says otherwise: overlay/VXLAN product, fancy IAM, snapshots, HA tinyd.
 
@@ -92,9 +95,9 @@ Go is the control plane. C++20 is the systems core. C is only for eBPF and other
 
 Initial language decision: C++ is the primary systems language. Go handles the control plane. Do not introduce Rust into the initial implementation.
 
-The control plane and runtime talk only through `proto/tiny/v1/runtime.proto`.
+The control plane and runtime talk through `proto/tiny/v1/runtime.proto`. Node agents use `proto/tiny/v1/node.proto`.
 
-Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md).
+Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md). Post-v1: [`docs/VERSIONS.md`](../../docs/VERSIONS.md).
 
 # Hard bans
 
@@ -104,8 +107,6 @@ Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARC
 | Kubernetes | Do not add pods, controllers, or kubelet |
 | AWS API wrappers | Do not call AWS, and do not vendor an AWS SDK to pretend this is the cloud |
 | Rust in v1 | Do not add Rust to the initial implementation |
-| eBPF in Milestone 1 | Do not add C or eBPF until Phase 7 |
-| Scope jump | Do not add images, networking product, storage product, IAM depth, metadata, or multi-node before Phase 1 exit criteria, unless the user opens that phase |
 | Fake completion | Prefer a stub that returns not-implemented over code that pretends an instance was started |
 
 # Phase gate
@@ -120,7 +121,7 @@ If the user asks for a later-version feature early, remind them of the version a
 
 Host target is Ubuntu Server 24.04 LTS. Compile C++ with GCC or Clang in C++20 mode. Use CMake, Go, gRPC, Protobuf, SQLite, GoogleTest, Git, and GitHub.
 
-Initial deployment: one Linux machine first. Multi-node is Phase 8.
+v1 supports self-registering node agents. True multi-host product work is post-v1 (docs/VERSIONS.md).
 
 Keep each change compilable.
 
@@ -402,14 +403,18 @@ Do not dump raw scanner noise. Convert each finding into:
 
 | Piece | Status |
 |---|---|
-| `sonar-project.properties` | Present |
+| `sonar-project.properties` | Present (v1.0.0; sources include `observability/`) |
 | `.github/workflows/sonar.yml` | Present (runs when `SONAR_TOKEN` is set) |
-| `.cursor/mcp.json` | Present (Sonar MCP + `vortex` toolset; needs `SONARQUBE_TOKEN` env + Docker) |
-| `docs/VERIFICATION.md` | Setup steps for CI Sonar and Cursor MCP |
+| `.cursor/mcp.json` | Present; toolsets `projects,vortex,issues,quality-gates,measures` |
+| `scripts/check-sonar-mcp.sh` | Local readiness check (token + Docker + config) |
+| `docs/VERIFICATION.md` | Setup steps for CI Sonar and Cursor MCP / Vortex |
 | SonarCloud user token | User must export `SONARQUBE_TOKEN` (user token, not project token) |
 | Vortex subscription | Requires SonarCloud Team annual / Enterprise with Vortex; otherwise MCP may only expose non-Vortex tools |
 
-If MCP/Vortex is not connected, say what is missing in one line, then use the compiler and tests as early feedback.
+When the Sonar MCP namespace is connected, prefer its issue / quality-gate / Vortex tools after meaningful edits, then still run compiler and tests.
+
+If MCP/Vortex is not connected, say what is missing in one line, then use the compiler and tests as early feedback. Point the user at `bash scripts/check-sonar-mcp.sh` and `docs/VERIFICATION.md`.
+
 Do not block coding on a live Vortex session unless the user asks to finish that setup.
 
 

@@ -1,6 +1,6 @@
 # Milestone 8 — locked multi-node contract
 
-Phase 8 is open. Phases 1–7 stay complete. Do not change these locks without an explicit new decision.
+Phase 8 is done (v1 complete). Do not change these locks without an explicit new decision. Post-v1: [`docs/VERSIONS.md`](VERSIONS.md).
 
 ## Phase status
 

@@ -1,6 +1,6 @@
 # Milestone 1 — locked create / lifecycle contract
 
-Decisions locked with the user. Do not change without an explicit new decision.
+Historical v1 lock (done). Do not change without an explicit new decision. Post-v1: [`docs/VERSIONS.md`](VERSIONS.md).
 
 Source proto: [`proto/tiny/v1/runtime.proto`](../proto/tiny/v1/runtime.proto)
 

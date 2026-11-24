@@ -20,10 +20,13 @@ Tiny AWS is a from-scratch mini cloud on Linux primitives. We implement the mech
 | `rules/scoped/` | Path-scoped rules. Not copied into `AGENTS.md` |
 | `.cursor/rules/` | Symlinks to the rules. Do not edit |
 | `hooks/` | Safety hook for agent shell commands |
-| `docs/ROADMAP.md` | Phase checklist and destination |
+| `docs/ROADMAP.md` | v1 phase checklist |
+| `docs/VERSIONS.md` | Post-v1 versions and phases |
+| `docs/VERIFICATION.md` | Sonar + Vortex setup |
 | `docs/ARCHITECTURE.md` | Language ownership and system shape |
-| `docs/MILESTONE-1.md` | Current focus detail |
+| `docs/MILESTONE-1.md` | Historical M1 detail (v1 done) |
 | `scripts/sync-agent-rules.sh` | Rebuilds `AGENTS.md` and refreshes Cursor symlinks |
+| `scripts/check-sonar-mcp.sh` | Sonar MCP / Vortex readiness check |
 
 # Always-on rules
 
@@ -62,6 +65,6 @@ Shared contracts, loaded when their paths are open:
 
 v1 complete. Default: v1 polish only (bugs, docs, smoke clarity) unless the user opens a version.
 
-Next planned open: **v2**, phase **V2.1 Image on node** only. Later v2 phases are V2.2 agent-owned ops, then V2.3 two-node proof. See `docs/VERSIONS.md`.
+Opened: **v2**, current phase **V2.1 Image on node** only. Do not start V2.2 or V2.3 until exit criteria for the current phase are met. See `docs/VERSIONS.md` and `docs/V2-CONTRACT.md` (when written).
 
 Out of v2 unless the contract says otherwise: overlay/VXLAN product, fancy IAM, snapshots, HA tinyd.

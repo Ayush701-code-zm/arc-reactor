@@ -1,14 +1,14 @@
 # Milestone 5 — locked IAM contract
 
-Phase 5 is open. Phases 1–4 stay complete. Do not change these locks without an explicit new decision.
+Phase 5 is done (v1). Do not change these locks without an explicit new decision. Post-v1: [`docs/VERSIONS.md`](VERSIONS.md).
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
-| 1–4 | done |
-| 5 IAM | CURRENT |
-| 6+ | locked later |
+| 1–5 | done |
+| 6–8 | done (v1) |
+| Post-v1 | [`docs/VERSIONS.md`](VERSIONS.md) |
 
 ## Ownership
 

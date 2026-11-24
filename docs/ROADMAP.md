@@ -237,10 +237,10 @@ Toward “around AWS” (not AWS parity). Phase-wise plan: [`docs/VERSIONS.md`](
 
 | Version | Phases | Status |
 |---|---|---|
-| v2 Make multi-node real | V2.1 image on node, V2.2 agent owns ops, V2.3 two-node proof | locked |
+| v2 Make multi-node real | V2.1 image on node, V2.2 agent owns ops, V2.3 two-node proof | **CURRENT** (V2.1) |
 | v3 Cross-node network | V3.1 connect, V3.2 allow/deny | locked |
 | v4 Durable storage | V4.1 restart-safe volumes, V4.2 snapshot | locked |
 | v5 Control plane product | V5.1 authz + quotas, V5.2 audit + backup + errors | locked |
 | v6 Operator confidence (optional) | V6.1 drain + signals, V6.2 failure drills | locked |
 
-Next recommended open: **v2**, then phase **V2.1** only.
+Opened: **v2**, phase **V2.1 Image on node**. Contract + locks before code.

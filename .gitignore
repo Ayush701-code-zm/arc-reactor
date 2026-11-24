@@ -7,6 +7,7 @@ hooks/denied.log
 # Secrets
 .env
 .env.*
+.cursor/sonar.env
 
 # Go
 control-plane/bin/

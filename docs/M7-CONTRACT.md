@@ -1,14 +1,14 @@
 # Milestone 7 — locked observability (eBPF) contract
 
-Phase 7 is open. Phases 1–6 stay complete.
+Phase 7 is done (v1). Do not change these locks without an explicit new decision. Post-v1: [`docs/VERSIONS.md`](VERSIONS.md).
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
-| 1–6 | done |
-| 7 eBPF observability | done |
-| 8 Multi-node | CURRENT |
+| 1–7 | done |
+| 8 Multi-node | done (v1) |
+| Post-v1 | [`docs/VERSIONS.md`](VERSIONS.md) |
 
 ## Ownership
 
@@ -30,7 +30,7 @@ Phase 7 is open. Phases 1–6 stay complete.
 | Piece | Rule |
 |---|---|
 | Process | dedicated `tinyebpf` |
-| IPC | Unix domain socket (default `$TINY_EBPF_SOCK` or `/tmp/tiny-aws-ebpf.sock`) |
+| IPC | Unix domain socket (default `$TINY_EBPF_SOCK` or `$HOME/.tiny-aws/ebpf.sock`) |
 | Control plane | tinyd requests `watch` / `unwatch` / `sample` as JSON lines |
 | CLI surface | fields on `tiny instance inspect` |
 

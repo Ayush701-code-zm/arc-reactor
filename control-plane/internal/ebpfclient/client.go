@@ -28,7 +28,10 @@ func DefaultSock() string {
 	if v := os.Getenv("TINY_EBPF_SOCK"); v != "" {
 		return v
 	}
-	return "/tmp/tiny-aws-ebpf.sock"
+	if home, err := os.UserHomeDir(); err == nil && home != "" {
+		return home + "/.tiny-aws/ebpf.sock"
+	}
+	return "./tiny-aws-ebpf.sock"
 }
 
 func Dial() *Client {

@@ -1,16 +1,14 @@
 # Milestone 4 — locked network contract
 
-Phase 4 is open. Phases 1–3 stay complete. Do not change these locks without an explicit new decision.
+Phase 4 is done (v1). Do not change these locks without an explicit new decision. Post-v1: [`docs/VERSIONS.md`](VERSIONS.md).
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
-| 1 Tiny EC2 | done |
-| 2 Images | done |
-| 3 Storage | done |
-| 4 Networking | CURRENT |
-| 5+ | locked later |
+| 1–4 | done |
+| 5–8 | done (v1) |
+| Post-v1 | [`docs/VERSIONS.md`](VERSIONS.md) |
 
 ## Ownership
 

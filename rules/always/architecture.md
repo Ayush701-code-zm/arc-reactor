@@ -27,9 +27,9 @@ Go is the control plane. C++20 is the systems core. C is only for eBPF and other
 
 Initial language decision: C++ is the primary systems language. Go handles the control plane. Do not introduce Rust into the initial implementation.
 
-The control plane and runtime talk only through `proto/tiny/v1/runtime.proto`.
+The control plane and runtime talk through `proto/tiny/v1/runtime.proto`. Node agents use `proto/tiny/v1/node.proto`.
 
-Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md).
+Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARCHITECTURE.md`](../../docs/ARCHITECTURE.md). Post-v1: [`docs/VERSIONS.md`](../../docs/VERSIONS.md).
 
 # Hard bans
 
@@ -39,8 +39,6 @@ Roadmap and system shape: [`docs/ROADMAP.md`](../../docs/ROADMAP.md), [`docs/ARC
 | Kubernetes | Do not add pods, controllers, or kubelet |
 | AWS API wrappers | Do not call AWS, and do not vendor an AWS SDK to pretend this is the cloud |
 | Rust in v1 | Do not add Rust to the initial implementation |
-| eBPF in Milestone 1 | Do not add C or eBPF until Phase 7 |
-| Scope jump | Do not add images, networking product, storage product, IAM depth, metadata, or multi-node before Phase 1 exit criteria, unless the user opens that phase |
 | Fake completion | Prefer a stub that returns not-implemented over code that pretends an instance was started |
 
 # Phase gate
@@ -55,6 +53,6 @@ If the user asks for a later-version feature early, remind them of the version a
 
 Host target is Ubuntu Server 24.04 LTS. Compile C++ with GCC or Clang in C++20 mode. Use CMake, Go, gRPC, Protobuf, SQLite, GoogleTest, Git, and GitHub.
 
-Initial deployment: one Linux machine first. Multi-node is Phase 8.
+v1 supports self-registering node agents. True multi-host product work is post-v1 (docs/VERSIONS.md).
 
 Keep each change compilable.

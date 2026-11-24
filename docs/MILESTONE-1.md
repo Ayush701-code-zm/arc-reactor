@@ -1,8 +1,8 @@
-# Milestone 1 — Tiny EC2 (CURRENT)
+# Milestone 1 — Tiny EC2 (done, historical)
 
-Working Linux instance manager on one Ubuntu machine.
+Working Linux instance manager on one Ubuntu machine. **Part of completed v1** (Phases 0–8).
 
-**Do not leave Milestone 1 early.** Phase 2+ stays locked until M1 exit criteria are met, unless the user explicitly opens the next phase. Full phase list: [`docs/ROADMAP.md`](ROADMAP.md).
+Do not treat this file as the current focus. Current plan: [`docs/VERSIONS.md`](VERSIONS.md). Phase history: [`docs/ROADMAP.md`](ROADMAP.md). Locked create contract: [`docs/M1-CONTRACT.md`](M1-CONTRACT.md).
 
 ## Goal
 
@@ -38,49 +38,18 @@ tiny instance create \
 | `tiny instance start <name>` | Start a stopped instance |
 | `tiny instance delete <name>` | Remove an instance |
 
-## Locked decisions
+## Ownership (M1)
 
-Full contract: [`docs/M1-CONTRACT.md`](M1-CONTRACT.md) and [`proto/tiny/v1/runtime.proto`](../proto/tiny/v1/runtime.proto).
-
-| Topic | Lock |
+| Piece | Owner |
 |---|---|
-| Identity | UUID primary + unique `--name` alias |
-| Ownership | Go: id + desired state; C++: live process; Go reconciles |
-| Create request | `id`, `name`, `image`, `cpu`, `memory_bytes` (no command/args) |
-| Create response | `id`, `status`, `pid`, `error_message` (startup failures); gRPC codes for RPC failures |
-| Isolation | pid namespace only in M1 |
-| Limits | cgroup v2 `cpu.max` + `memory.max` |
-| Stop | SIGTERM → 5000 ms → SIGKILL; status `STOPPING` then `STOPPED` |
-| Create order | DB-first, then gRPC, with compensation + reconciliation |
+| CLI, REST, SQLite, orchestration | Go |
+| Process, namespaces, cgroups | C++ |
+| Wire contract | `proto/tiny/v1/runtime.proto` |
 
-## Includes
+## Exit criteria (met in v1)
 
-- Go CLI + control plane validation/orchestration
-- SQLite metadata/state
-- gRPC to C++ runtime
-- pid namespace + cgroup v2 CPU/memory limits
-- process start / supervise / stop / start / delete
-
-## Excludes (do not build in M1)
-
-- Full virtual networking product
-- Block storage product
-- IAM product depth
-- eBPF
-- Multi-node scheduling
-- Other AWS-like services beyond instance lifecycle
-- Docker / Kubernetes / AWS API wrappers / Rust
-
-## Exit criteria
-
-- All M1 commands work reliably on one Ubuntu machine
-- Instance is actually isolated and CPU/memory limited
-- No orphan processes or ghost DB rows on failure paths
+- All M1 commands work on one Ubuntu machine
+- Instance is isolated and CPU/memory limited
 - Demoable live with `tiny instance *`
 
-## Agent workflow
-
-- Before non-trivial builds, ask design and technical questions that lead to the solution. Do not jump straight to code.
-- Use early verification while coding (Vortex-style): cheapest local checks after each meaningful change. SonarQube is the analysis source when present. Vortex makes it available earlier. Compiler and tests are enough until that is wired.
-- Lock the decision in a few bullets, then implement only that decision.
-- If asked for a later-phase feature, cite the roadmap gate and ask whether to stay on M1 or open that phase.
+Full M1 locks: [`docs/M1-CONTRACT.md`](M1-CONTRACT.md).

@@ -1,3 +1,4 @@
+# Dev Ubuntu host for Tiny AWS (cgroup/ns). Root is intentional for privileged Linux APIs.
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -25,10 +26,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 ARG GO_VERSION=1.22.12
 ARG GO_ARCH=amd64
-RUN curl -fsSL "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz" -o /tmp/go.tgz \
+RUN curl -fsSL --proto '=https' --proto-redir '=https' \
+      "https://go.dev/dl/go${GO_VERSION}.linux-${GO_ARCH}.tar.gz" -o /tmp/go.tgz \
     && tar -C /usr/local -xzf /tmp/go.tgz \
     && rm /tmp/go.tgz \
     && go version
 
 WORKDIR /src
+# NOSONAR - privileged host for namespaces/cgroups; not a production image
+USER root
 CMD ["bash"]

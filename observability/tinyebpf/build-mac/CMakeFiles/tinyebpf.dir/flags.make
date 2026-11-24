@@ -6,5 +6,7 @@ C_DEFINES =
 
 C_INCLUDES = -I"/Users/ayushanand/Developer/tiny aws/observability/tinyebpf/src"
 
-C_FLAGS = -std=gnu11
+C_FLAGSarm64 = -std=gnu11 -arch arm64
+
+C_FLAGS = -std=gnu11 -arch arm64
 

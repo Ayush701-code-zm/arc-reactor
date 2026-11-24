@@ -16,23 +16,24 @@ v1 phases: [`docs/ROADMAP.md`](docs/ROADMAP.md) · After v1 (phased v2–v6): [`
 
 | Language | Role |
 |---|---|
-| Go | Control plane: CLI, REST, orchestration, SQLite state |
-| C++20 | Systems core: process, namespaces, cgroups, later storage/network/node agent |
-| C | eBPF and specialized kernel interfaces only (not Milestone 1) |
+| Go | Control plane: CLI, REST, orchestration, SQLite state, scheduler |
+| C++20 | Systems core: process, namespaces, cgroups, storage, network, `tinynodeagent` |
+| C | eBPF and specialized kernel interfaces (`observability/tinyebpf`) |
 
 Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)  
-Current milestone: [`docs/MILESTONE-1.md`](docs/MILESTONE-1.md)  
-M1 contract: [`docs/M1-CONTRACT.md`](docs/M1-CONTRACT.md) · [`proto/tiny/v1/runtime.proto`](proto/tiny/v1/runtime.proto) (gRPC only)
+Contracts: [`docs/M1-CONTRACT.md`](docs/M1-CONTRACT.md) … [`docs/M8-CONTRACT.md`](docs/M8-CONTRACT.md) · Proto: [`proto/tiny/v1/`](proto/tiny/v1/)  
+Verification (Sonar + Vortex): [`docs/VERIFICATION.md`](docs/VERIFICATION.md)
 
 ## Layout
 
 | Path | Contents |
 |---|---|
 | `control-plane/` | Go module (`tiny`, `tinyd`) |
-| `runtime/` | C++20 CMake project |
-| `proto/tiny/v1/` | gRPC contract |
+| `runtime/` | C++20 CMake (`tinyruntimed`, `tinynodeagent`) |
+| `observability/tinyebpf/` | C eBPF daemon |
+| `proto/tiny/v1/` | gRPC contracts |
 | `rules/` | Agent rules (source of truth) |
-| `docs/` | Roadmap, architecture, milestone |
+| `docs/` | Roadmap, versions, contracts, verification |
 
 ## Agent rules
 
@@ -48,9 +49,9 @@ That rebuilds `AGENTS.md` and refreshes `.cursor/rules/`. Do not edit `AGENTS.md
 
 Ubuntu Server 24.04 LTS, GCC or Clang (C++20), CMake, Go, gRPC + Protobuf, SQLite, GoogleTest, Git/GitHub.
 
-Phase 8 adds `tinynodeagent` + first-fit scheduling. See [`docs/M8-CONTRACT.md`](docs/M8-CONTRACT.md).
+v1 includes `tinynodeagent` + first-fit scheduling. See [`docs/M8-CONTRACT.md`](docs/M8-CONTRACT.md).
 
-## Demo (Milestone 1)
+## Demo (v1)
 
 Need **Linux** (Ubuntu). On a Mac use Docker as a **dev host only**.
 
@@ -60,7 +61,7 @@ Need **Linux** (Ubuntu). On a Mac use Docker as a **dev host only**.
 bash scripts/dev-ubuntu-docker.sh
 # inside the container:
 bash scripts/m1-smoke-linux.sh
-# Phase 4–8:
+bash scripts/m3-smoke-linux.sh
 bash scripts/m4-smoke-linux.sh
 bash scripts/m5-smoke-linux.sh
 bash scripts/m6-smoke-linux.sh
@@ -68,58 +69,52 @@ bash scripts/m7-smoke-linux.sh
 bash scripts/m8-smoke-linux.sh
 ```
 
-That builds everything, starts `tinyruntimed` + `tinyd`, runs create → list → inspect → stop → start → delete. M4 adds network create/attach.
+That builds and exercises create → network → IAM → metadata → eBPF → multi-node agent path. Image import is covered inside later smokes (no separate `m2` script).
 
 ### Live demo (you type the commands)
-
-Inside the Ubuntu container (or on a real Ubuntu box):
 
 | Step | Who | What |
 |---|---|---|
 | 1 | you | `bash scripts/dev-ubuntu-docker.sh` (Mac) or open a shell on Ubuntu |
 | 2 | you | Build Go + C++ (commands below) |
-| 3 | you | Start `tinyruntimed`, then `tinyd` |
-| 4 | you | Run the six `tiny instance` commands |
-| 5 | you | Confirm JSON statuses: RUNNING → STOPPED → RUNNING → deleted |
+| 3 | you | Start `tinyruntimed`, then `tinyd`, then (for M8) `tinynodeagent` |
+| 4 | you | Auth, image import, instance create, inspect |
+| 5 | you | Confirm JSON statuses and (with agent) `NodeID` |
 
 ```bash
 cmake -S runtime -B runtime/build-linux && cmake --build runtime/build-linux
 (cd control-plane && go build -o bin/tiny ./cmd/tiny && go build -o bin/tinyd ./cmd/tinyd)
 
-export TINY_DB=/src/data/tiny-docker.db          # or another path on bare Ubuntu
+export TINY_DB=/src/data/tiny-docker.db
 export TINY_RUNTIME_ADDR=127.0.0.1:50051
+export TINY_NODE_CONTROL_ADDR=127.0.0.1:50052
 export TINY_API_ADDR=127.0.0.1:8080
 
 runtime/build-linux/tinyruntimed --addr 127.0.0.1:50051 >/tmp/tinyruntimed.log 2>&1 &
 ./control-plane/bin/tinyd >/tmp/tinyd.log 2>&1 &
+runtime/build-linux/tinynodeagent --control 127.0.0.1:50052 --runtime 127.0.0.1:50051 >/tmp/tinynodeagent.log 2>&1 &
 curl -sf http://127.0.0.1:8080/healthz && echo ok
-
-./control-plane/bin/tiny instance create --name my-server --image alpine --cpu 1 --memory 512MB
-./control-plane/bin/tiny instance list
-./control-plane/bin/tiny instance inspect my-server
-./control-plane/bin/tiny instance stop my-server
-./control-plane/bin/tiny instance start my-server
-./control-plane/bin/tiny instance delete my-server
-
-# Phase 3 volumes (needs a RUNNING instance + image rootfs)
-./control-plane/bin/tiny volume create --name data --size 64MB
-./control-plane/bin/tiny volume attach --volume data --instance my-server
-./control-plane/bin/tiny volume detach --volume data
-./control-plane/bin/tiny volume delete data
 ```
 
-Flow: `tiny` → HTTP → `tinyd` → gRPC → `tinyruntimed` → Linux process.
+Flow with agent: `tiny` → HTTP → `tinyd` → scheduler → agent Session → local `tinyruntimed` → Linux process.
 
 Full notes (cgroups on Docker Desktop): [`docs/DEV-UBUNTU-DOCKER.md`](docs/DEV-UBUNTU-DOCKER.md)
 
-## Build (skeleton)
+## Build
 
 ```bash
 # Go control plane
 cd control-plane && go test ./... && go build -o bin/tiny ./cmd/tiny && go build -o bin/tinyd ./cmd/tinyd
 
-# C++ runtime (use build-linux inside Docker)
+# C++ runtime + node agent (use build-linux inside Docker)
 cmake -S runtime -B runtime/build-linux && cmake --build runtime/build-linux && ctest --test-dir runtime/build-linux
 ```
 
-Verification / Sonar: [`docs/VERIFICATION.md`](docs/VERIFICATION.md)
+## Verification (Sonar + Vortex)
+
+```bash
+bash scripts/check-sonar-mcp.sh
+```
+
+CI: `.github/workflows/sonar.yml` (needs GitHub secret `SONAR_TOKEN`).  
+Cursor MCP: `.cursor/mcp.json` (needs `SONARQUBE_TOKEN` + Docker). Details: [`docs/VERIFICATION.md`](docs/VERIFICATION.md).

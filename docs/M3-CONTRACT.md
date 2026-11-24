@@ -1,15 +1,14 @@
 # Milestone 3 — locked volume contract
 
-Phase 3 storage slice is complete. Phase 1 and Phase 2 stay complete. Do not change these locks without an explicit new decision.
+Phase 3 storage slice is done (v1). Do not change these locks without an explicit new decision. Post-v1: [`docs/VERSIONS.md`](VERSIONS.md).
 
 ## Phase status
 
 | Phase | Status |
 |---|---|
-| 1 Tiny EC2 | done |
-| 2 Images | done |
-| 3 Storage | done |
-| 4+ | locked later |
+| 1–3 | done |
+| 4–8 | done (v1) |
+| Post-v1 | [`docs/VERSIONS.md`](VERSIONS.md) |
 
 ## Exit criteria (met)
 

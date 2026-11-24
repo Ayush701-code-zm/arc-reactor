@@ -5,11 +5,13 @@
 
 #include <chrono>
 #include <cstdlib>
+#include <cerrno>
 #include <fstream>
 #include <iostream>
 #include <memory>
 #include <mutex>
 #include <string>
+#include <sys/stat.h>
 #include <thread>
 #include <unistd.h>
 
@@ -59,7 +61,22 @@ uint64_t HostMemoryBytes() {
   return 1024ULL * 1024ULL * 1024ULL;
 }
 
+bool EnsureParentDir(const std::string& path) {
+  const auto pos = path.find_last_of('/');
+  if (pos == std::string::npos || pos == 0) {
+    return true;
+  }
+  const std::string dir = path.substr(0, pos);
+#if defined(_WIN32)
+  (void)dir;
+  return true;
+#else
+  return mkdir(dir.c_str(), 0700) == 0 || errno == EEXIST;
+#endif
+}
+
 std::string LoadOrCreateNodeID(const std::string& path) {
+  (void)EnsureParentDir(path);
   {
     std::ifstream in(path);
     std::string id;
@@ -280,7 +297,11 @@ class Agent {
 int main(int argc, char** argv) {
   std::string control = EnvOr("TINY_NODE_CONTROL_ADDR", "127.0.0.1:50052");
   std::string runtime = EnvOr("TINY_RUNTIME_ADDR", "127.0.0.1:50051");
-  std::string id_file = EnvOr("TINY_NODE_ID_FILE", "/tmp/tiny-node-id");
+  std::string id_default = "./tiny-aws-node-id";
+  if (const char* home = std::getenv("HOME"); home != nullptr && home[0] != '\0') {
+    id_default = std::string(home) + "/.tiny-aws/node-id";
+  }
+  std::string id_file = EnvOr("TINY_NODE_ID_FILE", id_default);
 
   for (int i = 1; i < argc; ++i) {
     const std::string a = argv[i];

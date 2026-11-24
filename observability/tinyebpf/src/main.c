@@ -164,7 +164,27 @@ static void handle_line(int fd, const char *line) {
 	reply(fd, "{\"ok\":false,\"error\":\"unknown op\"}");
 }
 
+static int ensure_parent_dir(const char *path) {
+	char dir[512];
+	snprintf(dir, sizeof(dir), "%s", path);
+	char *slash = strrchr(dir, '/');
+	if (!slash || slash == dir) return 0;
+	*slash = '\0';
+	if (mkdir(dir, 0700) != 0 && errno != EEXIST) return -1;
+	return 0;
+}
+
+static void default_sock_path(char *out, size_t n) {
+	const char *home = getenv("HOME");
+	if (home && home[0]) {
+		snprintf(out, n, "%s/.tiny-aws/ebpf.sock", home);
+		return;
+	}
+	snprintf(out, n, "%s", "./tiny-aws-ebpf.sock");
+}
+
 static int serve(const char *sock_path) {
+	if (ensure_parent_dir(sock_path) != 0) return -1;
 	unlink(sock_path);
 	int s = socket(AF_UNIX, SOCK_STREAM, 0);
 	if (s < 0) return -1;
@@ -200,8 +220,11 @@ static int serve(const char *sock_path) {
 
 int main(int argc, char **argv) {
 	const char *sock = getenv("TINY_EBPF_SOCK");
-	if (!sock || !sock[0]) sock = "/tmp/tiny-aws-ebpf.sock";
-	snprintf(g_sock_path, sizeof(g_sock_path), "%s", sock);
+	if (sock && sock[0]) {
+		snprintf(g_sock_path, sizeof(g_sock_path), "%s", sock);
+	} else {
+		default_sock_path(g_sock_path, sizeof(g_sock_path));
+	}
 
 	const char *obj = getenv("TINY_EBPF_OBJECT");
 	char default_obj[512];

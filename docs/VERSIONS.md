@@ -6,12 +6,24 @@ This file is the source of truth for major versions after v1. Each version has *
 
 Goal shape: **around AWS** as a teachable mini-cloud (EC2 / VPC / EBS / IAM / multi-node mental model). Not AWS API parity. Not a production AWS competitor.
 
+## Quality bar (locked)
+
+**Thin spine + deep spikes.**
+
+| Keep thin | Make deep |
+|---|---|
+| One clear create / schedule / agent path | V2: image on node, agent-owned ops, two-node proof |
+| No AWS API cosplay, no feature zoo | V3–V4: real cross-node network + durable storage |
+| No mid-flight language rewrite (Rust stays out unless a later version opens it) | V5–V6: policy/quotas + failure drills |
+
+Deferred v1 items (guest `169.254`, custom command/args, squashfs, XDP, live migration, tinyd HA, Rust) stay **unplaced** until a version or phase explicitly takes them. They do not auto-enter v2–v6.
+
 ## Version checklist
 
 | Version | One job | Phases | Status |
 |---|---|---|---|
 | **v1** | Mechanism spine | 0–8 | **done** |
-| **v2** | Make multi-node real | V2.1–V2.3 | locked until opened |
+| **v2** | Make multi-node real | V2.1–V2.3 | **CURRENT** (phase **V2.1** only) |
 | **v3** | Cross-node network | V3.1–V3.2 | locked until opened |
 | **v4** | Durable storage product | V4.1–V4.2 | locked until opened |
 | **v5** | Control plane product | V5.1–V5.2 | locked until opened |

@@ -19,7 +19,7 @@ A from-scratch mini cloud on Linux primitives. We implement the mechanisms ourse
 |---|---|---|
 | Control plane | Go | CLI and command handling, REST API, IAM and authentication, resource orchestration, scheduler, metadata and state |
 | Systems core | C++20 | Linux process management, instance runtime, namespaces and cgroups, filesystem and block storage ops, virtual networking, node agent, resource monitoring |
-| Specialized | C | eBPF programs, specialized kernel interfaces. Not Milestone 1 |
+| Specialized | C | eBPF programs and specialized kernel interfaces (`observability/tinyebpf`) |
 | Host | Ubuntu Server 24.04 LTS | Kernel resource management, networking and filesystem primitives |
 
 Initial language decision:
@@ -28,20 +28,23 @@ Initial language decision:
 - Go handles the control plane
 - Do not introduce Rust into the initial implementation
 
-## System shape (Milestone 1)
+## System shape (v1)
 
 ```
 tiny (Go CLI)
-  -> tinyd (Go control plane: validate, SQLite, orchestrate)
-    -> gRPC (proto/tiny/v1)
-      -> tinyruntimed (C++ runtime: isolate, limit, supervise)
-        -> Linux process (+ namespaces/cgroups as decided for M1)
+  -> tinyd (Go control plane: validate, SQLite, orchestrate, schedule)
+    -> NodeControl Session gRPC (when agents connected)
+         -> tinynodeagent
+              -> RuntimeService gRPC -> tinyruntimed -> Linux
+    -> RuntimeService gRPC (legacy zero-agent / volume-network dial)
+         -> tinyruntimed -> Linux
 ```
 
-- Control plane owns identity, desired state, and orchestration (SQLite).
-- Runtime owns the live process and Linux primitives (pid namespace + cgroup v2 in M1).
-- CLI → `tinyd` is HTTP REST. `tinyd` → runtime is gRPC only (`proto/tiny/v1/runtime.proto`).
-- Locked M1 contract: [`docs/M1-CONTRACT.md`](M1-CONTRACT.md).
+- Control plane owns identity, desired state, orchestration, and scheduling (SQLite).
+- Runtime owns the live process and Linux primitives.
+- Node agent owns registration, capacity heartbeat, and create/lifecycle proxy to local runtime.
+- CLI → `tinyd` is HTTP REST. Contracts: [`proto/tiny/v1/runtime.proto`](../proto/tiny/v1/runtime.proto), [`proto/tiny/v1/node.proto`](../proto/tiny/v1/node.proto).
+- Historical M1 detail: [`docs/M1-CONTRACT.md`](M1-CONTRACT.md). Multi-node: [`docs/M8-CONTRACT.md`](M8-CONTRACT.md).
 
 ## Dev environment
 
@@ -54,7 +57,7 @@ tiny (Go CLI)
 - Git and GitHub
 - GoogleTest
 
-Initial deployment: everything on one Linux machine first. Multi-node is Phase 8.
+v1 supports self-registering node agents. True multi-host product work is post-v1 ([`docs/VERSIONS.md`](VERSIONS.md)).
 
 ## Hard bans
 
@@ -64,7 +67,7 @@ Initial deployment: everything on one Linux machine first. Multi-node is Phase 8
 | Kubernetes | No pods, controllers, or kubelet |
 | AWS API wrappers | No AWS SDK / API calls to pretend this is the cloud |
 | Rust in v1 | No Rust in the initial implementation |
-| Phase jump | Do not build Phase 2+ until Phase 1 exit criteria are met, unless the user opens that phase |
+| Version / phase jump | Do not build post-v1 work until the user opens that version and phase ([`docs/VERSIONS.md`](VERSIONS.md)) |
 
 ## See also
 
