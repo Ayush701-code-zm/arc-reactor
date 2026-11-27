@@ -20,7 +20,8 @@ func Open(path string) (*Store, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
-	db, err := sql.Open("sqlite", path)
+	dsn := "file:" + filepath.ToSlash(path) + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
 	}
@@ -123,8 +124,20 @@ CREATE TABLE IF NOT EXISTS nodes (
   running_instances INTEGER NOT NULL DEFAULT 0,
   last_heartbeat TEXT NOT NULL DEFAULT '',
   connected INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS node_images (
+  node_id TEXT NOT NULL,
+  image_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  rootfs_path TEXT NOT NULL DEFAULT '',
+  error_message TEXT NOT NULL DEFAULT '',
+  PRIMARY KEY (node_id, image_id)
 );`)
-	return err
+	if err != nil {
+		return err
+	}
+	_, _ = s.db.Exec(`ALTER TABLE nodes ADD COLUMN image_root TEXT NOT NULL DEFAULT ''`)
+	return nil
 }
 
 func (s *Store) InsertImage(ctx context.Context, img types.Image) error {

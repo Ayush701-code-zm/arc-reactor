@@ -123,7 +123,7 @@ func (h *Hub) Session(stream tinyv1.NodeControlService_SessionServer) error {
 			if nodeID == "" {
 				nodeID = uuid.NewString()
 			}
-			if err := h.Store.UpsertNode(stream.Context(), nodeID, reg.GetHostname(),
+			if err := h.Store.UpsertNode(stream.Context(), nodeID, reg.GetHostname(), reg.GetImageRoot(),
 				reg.GetAllocatableCpu(), reg.GetAllocatableMemoryBytes(), 0, true); err != nil {
 				_ = stream.Send(&tinyv1.ControlToAgent{
 					Body: &tinyv1.ControlToAgent_RegisterAck{
@@ -166,7 +166,7 @@ func (h *Hub) Session(stream tinyv1.NodeControlService_SessionServer) error {
 			if sess == nil || hb.GetNodeId() != sess.nodeID {
 				continue
 			}
-			_ = h.Store.UpsertNode(stream.Context(), sess.nodeID, "",
+			_ = h.Store.UpsertNode(stream.Context(), sess.nodeID, "", "",
 				hb.GetAllocatableCpu(), hb.GetAllocatableMemoryBytes(), hb.GetRunningInstances(), true)
 		case *tinyv1.AgentToControl_OpResult:
 			if sess == nil {
@@ -198,9 +198,30 @@ func (h *Hub) CreateInstance(ctx context.Context, nodeID string, inst types.Inst
 				Cpu:         inst.CPU,
 				MemoryBytes: inst.MemoryBytes,
 				RootfsPath:  inst.RootfsPath,
+				ImageId:     inst.ImageID,
 			},
 		},
 	})
+}
+
+func (h *Hub) PlaceImage(ctx context.Context, nodeID, imageID, artifactPath, rootfsSource string) error {
+	view, err := h.roundTrip(ctx, nodeID, &tinyv1.RuntimeOpRequest{
+		RequestId: uuid.NewString(),
+		Op: &tinyv1.RuntimeOpRequest_PlaceImage{
+			PlaceImage: &tinyv1.PlaceImageRequest{
+				ImageId:          imageID,
+				ArtifactPath:     artifactPath,
+				RootfsSourcePath: rootfsSource,
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+	if view.ErrorMessage != "" {
+		return fmt.Errorf("%s", view.ErrorMessage)
+	}
+	return nil
 }
 
 func (h *Hub) StartInstance(ctx context.Context, nodeID, id string) (types.RuntimeView, error) {

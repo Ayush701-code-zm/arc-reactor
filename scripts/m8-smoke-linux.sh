@@ -109,6 +109,7 @@ printf 'registered node %s\n' "$NODE_ID"
 IMG=m8-alpine
 NAME=m8-web
 "$TINY" image import --name "$IMG" --file "$ALPINE_TGZ" >/dev/null
+"$TINY" image place --name "$IMG" --node "$NODE_ID" >/dev/null
 "$TINY" instance create --name "$NAME" --image "$IMG" --cpu 1 --memory 64MB >/dev/null
 
 INS="$("$TINY" instance inspect "$NAME")"

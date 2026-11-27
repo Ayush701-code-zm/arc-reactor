@@ -14,9 +14,14 @@ import (
 	"github.com/google/uuid"
 )
 
+type NodePlacer interface {
+	PlaceImage(ctx context.Context, nodeID, imageID, artifactPath, rootfsSource string) error
+}
+
 type Service struct {
 	Store     *store.Store
 	ImageRoot string
+	Nodes     NodePlacer
 }
 
 func DefaultRoot() string {
@@ -158,6 +163,59 @@ func (s *Service) ResolveRootfs(ctx context.Context, name string) (types.Image, 
 		return img, fmt.Errorf("rootfs missing for image %q: %w", name, err)
 	}
 	return img, nil
+}
+
+func (s *Service) PlaceOnNode(ctx context.Context, name, nodeID string) (types.NodeImage, error) {
+	name = strings.TrimSpace(name)
+	nodeID = strings.TrimSpace(nodeID)
+	if name == "" {
+		return types.NodeImage{}, fmt.Errorf("image name is required")
+	}
+	if nodeID == "" {
+		return types.NodeImage{}, fmt.Errorf("node id is required")
+	}
+	if s.Nodes == nil {
+		return types.NodeImage{}, fmt.Errorf("node placer is not configured")
+	}
+	img, err := s.Inspect(ctx, name)
+	if err != nil {
+		return types.NodeImage{}, err
+	}
+	if img.Status != types.ImageStatusReady {
+		return types.NodeImage{}, fmt.Errorf("image %q is not READY", name)
+	}
+	artifact := img.ArtifactPath
+	rootfsSource := ""
+	if artifact == "" {
+		rootfsSource = img.RootfsPath
+	}
+	if artifact == "" && rootfsSource == "" {
+		return types.NodeImage{}, fmt.Errorf("image %q has no artifact_path or rootfs_path", name)
+	}
+	if err := s.Nodes.PlaceImage(ctx, nodeID, img.ID, artifact, rootfsSource); err != nil {
+		ni := types.NodeImage{
+			NodeID:       nodeID,
+			ImageID:      img.ID,
+			Status:       types.NodeImageFailed,
+			ErrorMessage: err.Error(),
+		}
+		_ = s.Store.UpsertNodeImage(ctx, ni)
+		return ni, fmt.Errorf("place image %s on node %s: %w", img.ID, nodeID, err)
+	}
+	rootfsLocal := filepath.Join(img.ID, "rootfs")
+	if node, err := s.Store.GetNode(ctx, nodeID); err == nil && node.ImageRoot != "" {
+		rootfsLocal = filepath.Join(node.ImageRoot, img.ID, "rootfs")
+	}
+	ni := types.NodeImage{
+		NodeID:     nodeID,
+		ImageID:    img.ID,
+		Status:     types.NodeImageReady,
+		RootfsPath: rootfsLocal,
+	}
+	if err := s.Store.UpsertNodeImage(ctx, ni); err != nil {
+		return types.NodeImage{}, err
+	}
+	return ni, nil
 }
 
 func copyFile(src, dst string) error {

@@ -21,8 +21,8 @@ func TestPlaceFirstFit(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = st.Close() })
 	ctx := context.Background()
-	_ = st.UpsertNode(ctx, "n1", "h1", 1, 64*1024*1024, 0, true)
-	_ = st.UpsertNode(ctx, "n2", "h2", 4, 512*1024*1024, 0, true)
+	_ = st.UpsertNode(ctx, "n1", "h1", "", 1, 64*1024*1024, 0, true)
+	_ = st.UpsertNode(ctx, "n2", "h2", "", 4, 512*1024*1024, 0, true)
 	svc := &Service{Store: st, Hub: &fakeHub{ids: []string{"n1", "n2"}}}
 
 	id, err := svc.Place(ctx, 2, 128*1024*1024)
@@ -41,7 +41,7 @@ func TestPlaceHardFail(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = st.Close() })
 	ctx := context.Background()
-	_ = st.UpsertNode(ctx, "n1", "h1", 1, 64*1024*1024, 0, true)
+	_ = st.UpsertNode(ctx, "n1", "h1", "", 1, 64*1024*1024, 0, true)
 	svc := &Service{Store: st, Hub: &fakeHub{ids: []string{"n1"}}}
 	_, err = svc.Place(ctx, 2, 128*1024*1024)
 	if err == nil {

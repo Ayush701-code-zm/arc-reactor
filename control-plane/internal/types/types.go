@@ -31,6 +31,7 @@ type Instance struct {
 	ID            string
 	Name          string
 	Image         string
+	ImageID       string `json:",omitempty"`
 	RootfsPath    string
 	CPU           uint32
 	MemoryBytes   uint64
@@ -45,12 +46,28 @@ type Instance struct {
 type Node struct {
 	ID                     string
 	Hostname               string
+	ImageRoot              string
 	AllocatableCPU         uint32
 	AllocatableMemoryBytes uint64
 	AllocatedCPU           uint32
 	AllocatedMemoryBytes   uint64
 	RunningInstances       uint32
 	Connected              bool
+}
+
+type NodeImageStatus string
+
+const (
+	NodeImageReady  NodeImageStatus = "READY"
+	NodeImageFailed NodeImageStatus = "FAILED"
+)
+
+type NodeImage struct {
+	NodeID       string
+	ImageID      string
+	Status       NodeImageStatus
+	RootfsPath   string
+	ErrorMessage string
 }
 
 type Observability struct {

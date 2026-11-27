@@ -44,6 +44,9 @@ message CreateInstanceRequest {
   uint32 cpu = 4;
   uint64 memory_bytes = 5;
   string rootfs_path = 6;
+  // Control-plane image UUID. When set on the agent create path, the node
+  // materializes rootfs from TINY_NODE_IMAGE_ROOT/<image_id>/ (V2.1).
+  string image_id = 7;
 }
 
 message CreateInstanceResponse {

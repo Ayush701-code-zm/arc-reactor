@@ -31,6 +31,8 @@ message RegisterRequest {
   string hostname = 2;
   uint32 allocatable_cpu = 3;
   uint64 allocatable_memory_bytes = 4;
+  // Absolute node-local image store root (TINY_NODE_IMAGE_ROOT).
+  string image_root = 5;
 }
 
 message RegisterAck {
@@ -53,7 +55,15 @@ message RuntimeOpRequest {
     StopInstanceRequest stop = 4;
     DeleteInstanceRequest delete = 5;
     InspectInstanceRequest inspect = 6;
+    // Separate from create: materialize image under node TINY_NODE_IMAGE_ROOT.
+    PlaceImageRequest place_image = 7;
   }
+}
+
+message PlaceImageRequest {
+  string image_id = 1;
+  string artifact_path = 2;
+  string rootfs_source_path = 3;
 }
 
 message RuntimeOpResult {

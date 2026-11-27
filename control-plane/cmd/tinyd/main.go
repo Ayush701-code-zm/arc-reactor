@@ -63,7 +63,7 @@ func main() {
 	defer hub.Stop()
 
 	sched := &scheduler.Service{Store: st, Hub: hub}
-	imgSvc := &image.Service{Store: st, ImageRoot: imageRoot}
+	imgSvc := &image.Service{Store: st, ImageRoot: imageRoot, Nodes: hub}
 	volSvc := &volume.Service{Store: st, Runtime: rt, Images: imgSvc, VolRoot: volRoot}
 	netSvc := &network.Service{Store: st, Runtime: rt}
 	ebpf := ebpfclient.Dial()
@@ -291,6 +291,25 @@ func main() {
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]bool{"deleted": true})
+	})
+	mux.HandleFunc("POST /v1/images/{name}/place", func(w http.ResponseWriter, r *http.Request) {
+		var body struct {
+			NodeID string `json:"NodeID"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeErr(w, http.StatusBadRequest, err)
+			return
+		}
+		ni, err := imgSvc.PlaceOnNode(r.Context(), r.PathValue("name"), body.NodeID)
+		if err != nil {
+			if ni.ImageID != "" {
+				writeJSON(w, http.StatusInternalServerError, ni)
+				return
+			}
+			writeErr(w, statusFor(err), err)
+			return
+		}
+		writeJSON(w, http.StatusOK, ni)
 	})
 
 	mux.HandleFunc("GET /v1/volumes", func(w http.ResponseWriter, r *http.Request) {

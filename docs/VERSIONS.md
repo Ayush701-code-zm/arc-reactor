@@ -75,13 +75,15 @@ Keep out of every v2 phase: overlay/VXLAN product, IAM depth, snapshots, HA tiny
 
 Build:
 
-- A defined way for the scheduled node to hold the image rootfs before `CreateInstance`
-- Fail create if that rootfs is not ready on the chosen node
+- Node-local store under `TINY_NODE_IMAGE_ROOT/<image-id>/`; place/import separate from create
+- `EnsureRootfs` inside agent create; create hard-fails if image not READY on the selected node
+- Demo: two agents on one host with separate image roots (`scripts/v21-smoke-linux.sh`)
 
 Exit criteria:
 
-- A create that targets a second node uses that node’s rootfs path
-- Missing rootfs fails clearly (no silent use of another machine’s path)
+- `tiny image place` then create succeeds only on a node that has the image READY
+- Missing image fails with image id + node id (no wait for sync)
+- V2.1 smoke proves isolation across two node image roots
 
 ### V2.2 — Agent owns ops
 

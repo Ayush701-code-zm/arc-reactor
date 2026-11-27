@@ -185,6 +185,14 @@ func runImage(client *http.Client, base string, args []string) {
 		name := mustName(args[1:])
 		var out map[string]any
 		callJSON(client, http.MethodDelete, base+"/v1/images/"+url.PathEscape(name), nil, &out, "delete")
+	case "place":
+		name, nodeID, err := parseImagePlace(args[1:])
+		if err != nil {
+			fail(err)
+		}
+		body := map[string]string{"NodeID": nodeID}
+		var ni types.NodeImage
+		callJSON(client, http.MethodPost, base+"/v1/images/"+url.PathEscape(name)+"/place", body, &ni, "place")
 	default:
 		usage()
 		os.Exit(2)
@@ -244,6 +252,9 @@ func callJSON(client *http.Client, method, rawURL string, body any, out any, op 
 	}
 	_ = printJSON(out)
 	if code >= 300 {
+		if ni, ok := out.(*types.NodeImage); ok && ni != nil && ni.ErrorMessage != "" {
+			fail(fmt.Errorf("%s failed: HTTP %d: %s", op, code, ni.ErrorMessage))
+		}
 		fail(fmt.Errorf("%s failed: HTTP %d", op, code))
 	}
 }
@@ -370,6 +381,32 @@ func parseImageImport(args []string) (string, string, error) {
 		return "", "", fmt.Errorf("--name and --file are required")
 	}
 	return name, file, nil
+}
+
+func parseImagePlace(args []string) (string, string, error) {
+	var name, nodeID string
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--name":
+			i++
+			if i >= len(args) {
+				return "", "", fmt.Errorf("--name needs a value")
+			}
+			name = args[i]
+		case "--node":
+			i++
+			if i >= len(args) {
+				return "", "", fmt.Errorf("--node needs a value")
+			}
+			nodeID = args[i]
+		default:
+			return "", "", fmt.Errorf("unknown flag %s", args[i])
+		}
+	}
+	if name == "" || nodeID == "" {
+		return "", "", fmt.Errorf("--name and --node are required")
+	}
+	return name, nodeID, nil
 }
 
 func parseVolumeCreate(args []string) (string, uint64, error) {
@@ -679,6 +716,7 @@ tiny instance create --name NAME --image IMAGE --cpu N --memory SIZE [--network 
 tiny instance metadata NAME [path]
 tiny instance list|inspect|stop|start|delete ...
 tiny image import --name NAME --file PATH.tar.gz
+tiny image place --name NAME --node NODE_ID
 tiny image list
 tiny image inspect NAME
 tiny image delete NAME

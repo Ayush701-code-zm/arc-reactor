@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ayushanand/tiny-aws/control-plane/internal/authtest"
@@ -187,5 +188,60 @@ func TestValidateSpec(t *testing.T) {
 	_, err := svc.Create(authtest.Ctx(), types.Spec{})
 	if err == nil {
 		t.Fatal("expected validation error")
+	}
+}
+
+type fakeImages struct {
+	img types.Image
+}
+
+func (f *fakeImages) ResolveRootfs(context.Context, string) (types.Image, error) {
+	return f.img, nil
+}
+
+type fakeNodes struct {
+	connected bool
+	nodeID    string
+}
+
+func (f *fakeNodes) HasConnected() bool { return f.connected }
+func (f *fakeNodes) CreateInstance(context.Context, string, types.Instance) (types.RuntimeView, error) {
+	return types.RuntimeView{Status: types.StatusRunning, PID: 1}, nil
+}
+func (f *fakeNodes) StartInstance(context.Context, string, string) (types.RuntimeView, error) {
+	return types.RuntimeView{}, nil
+}
+func (f *fakeNodes) StopInstance(context.Context, string, string) (types.RuntimeView, error) {
+	return types.RuntimeView{}, nil
+}
+func (f *fakeNodes) DeleteInstance(context.Context, string, string) error { return nil }
+func (f *fakeNodes) InspectInstance(context.Context, string, string) (types.RuntimeView, error) {
+	return types.RuntimeView{}, nil
+}
+
+type fakeScheduler struct{ nodeID string }
+
+func (f *fakeScheduler) Place(context.Context, uint32, uint64) (string, error) {
+	return f.nodeID, nil
+}
+
+func TestCreateFailsWhenNodeImageNotReady(t *testing.T) {
+	svc := newService(t, &fakeRuntime{})
+	svc.Images = &fakeImages{img: types.Image{
+		ID: "img-1", Name: "alpine", RootfsPath: "/tmp/rootfs", Status: types.ImageStatusReady,
+	}}
+	svc.Nodes = &fakeNodes{connected: true, nodeID: "node-b"}
+	svc.Scheduler = &fakeScheduler{nodeID: "node-b"}
+	_, err := svc.Create(authtest.Ctx(), types.Spec{
+		Name: "miss", Image: "alpine", CPU: 1, MemoryBytes: 1,
+	})
+	if err == nil {
+		t.Fatal("expected missing node image error")
+	}
+	got := err.Error()
+	for _, part := range []string{"img-1", "node-b", "not READY"} {
+		if !strings.Contains(got, part) {
+			t.Fatalf("err=%q missing %q", got, part)
+		}
 	}
 }

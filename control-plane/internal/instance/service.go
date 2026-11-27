@@ -58,13 +58,13 @@ func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, 
 		return types.Instance{}, err
 	}
 
-	var rootfs string
+	var img types.Image
 	if s.Images != nil {
-		img, err := s.Images.ResolveRootfs(ctx, spec.Image)
+		resolved, err := s.Images.ResolveRootfs(ctx, spec.Image)
 		if err != nil {
 			return types.Instance{}, err
 		}
-		rootfs = img.RootfsPath
+		img = resolved
 	}
 
 	nodeID := "local"
@@ -78,12 +78,27 @@ func (s *Service) Create(ctx context.Context, spec types.Spec) (types.Instance, 
 			return types.Instance{}, err
 		}
 		nodeID = placed
+		if img.ID == "" {
+			return types.Instance{}, fmt.Errorf("image id required for node create")
+		}
+		ni, err := s.Store.GetNodeImage(ctx, nodeID, img.ID)
+		if err != nil || ni.Status != types.NodeImageReady {
+			return types.Instance{}, fmt.Errorf(
+				"image %s is not READY on node %s; place the image on that node before create",
+				img.ID, nodeID)
+		}
+	}
+
+	rootfs := ""
+	if !useAgent {
+		rootfs = img.RootfsPath
 	}
 
 	inst := types.Instance{
 		ID:          uuid.NewString(),
 		Name:        spec.Name,
 		Image:       spec.Image,
+		ImageID:     img.ID,
 		RootfsPath:  rootfs,
 		CPU:         spec.CPU,
 		MemoryBytes: spec.MemoryBytes,
